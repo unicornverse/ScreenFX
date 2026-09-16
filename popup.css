@@ -1,0 +1,108 @@
+/* ============================================================================
+ * ScreenFX popup
+ * ----------------------------------------------------------------------------
+ * A 320px surface with one job: play an effect. Everything that is not that
+ * lives one level deeper, behind the Schedules row.
+ *
+ * No colour except the accent on the selected duration, no shadows except the
+ * segmented-control thumb, and no hover animation on the tiles — a grid you
+ * sweep the pointer across every time you open it is the wrong place to spend
+ * attention. The tiles change background on hover and nothing else.
+ * ========================================================================== */
+
+body {
+  width: 320px;
+  padding: var(--s3) var(--s4) var(--s4);
+  overflow: hidden;
+}
+
+/* ---------- header -------------------------------------------------------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  height: 34px;
+  margin-bottom: var(--s3);
+}
+
+.header h1 { margin: 0; }
+
+/* ---------- effect grid --------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 0;
+  border-radius: var(--r-tile);
+  /* Tiles share the raised surface with the rows below them. Putting the grid
+     on --fill made the white settings card look more important than the thing
+     the popup exists to do. */
+  background: var(--surface);
+  color: var(--label);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--t-tint) var(--ease-out),
+    transform var(--t-press) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover { background: var(--fill); }
+}
+
+/* Feedback lands on pointer-down, not on release. */
+.tile:active {
+  background: var(--fill-hover);
+  transform: scale(0.97);
+}
+
+.tile-glyph {
+  display: block;
+  color: var(--label);
+  transition: color var(--t-tint) var(--ease-out);
+}
+
+/* An inline SVG carrying only a viewBox has no intrinsic size; inside a
+   flex column that shrinks to content it resolves to 0x0 and vanishes. */
+.tile-glyph svg { display: block; width: 24px; height: 24px; }
+
+.tile-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.003em;
+}
+
+/* ---------- rows ---------------------------------------------------------- */
+
+.group { margin-bottom: var(--s3); }
+
+.row { min-height: 42px; }
+
+.row .seg { margin-inline-start: auto; }
+.row .seg-opt { height: 24px; padding: 0 9px; font-size: 12px; }
+
+#schedulesRow .row-text { display: flex; flex-direction: column; }
+
+/* ---------- footnote / status --------------------------------------------- */
+
+.hint {
+  margin: 0;
+  padding-inline: var(--s1);
+  text-wrap: pretty;
+  transition: color var(--t-tint) var(--ease-out);
+}
+
+.hint.is-error { color: var(--danger); }

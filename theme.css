@@ -1,0 +1,519 @@
+/* ============================================================================
+ * ScreenFX — design system
+ * Loaded by popup.html and options.html before their own stylesheet.
+ * ----------------------------------------------------------------------------
+ * COLOUR — OKLCH, one meaning per colour.
+ *   Neutrals are a single hue (264) at near-zero chroma, so every step shares a
+ *   cast and the ramp has no hue drift. Colour is not decoration here: the
+ *   accent marks the selected state and exactly one primary action per view,
+ *   and nothing else in the interface is coloured. Red means destructive, and
+ *   means nothing else.
+ *   --accent and --accent-fill are separate tokens on purpose: the bright tint
+ *   that reads well as text on a dark surface is too light to carry white text
+ *   as a button, so the button gets its own darker value.
+ *
+ * MOTION — springs, not durations.
+ *   The easings below are real critically-damped springs sampled into CSS
+ *   linear(), parameterised the way Apple parameterises them: a damping ratio
+ *   and a response time. Damping 1.0 (no overshoot) is the default for
+ *   everything; bounce is reserved for motion that followed a physical gesture.
+ *   A spring has no duration — the ms values paired with each curve are its
+ *   settle time, and they belong together.
+ *
+ * TYPE — the platform font, with size-specific tracking.
+ *   Tracking is negative on large text and slightly positive on small caps; one
+ *   letter-spacing value applied everywhere is wrong somewhere.
+ * ========================================================================== */
+
+:root {
+  /* ---- type ------------------------------------------------------------- */
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                  "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+
+  /* ---- space (4pt) ------------------------------------------------------- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 28px;
+  --s7: 40px;
+
+  /* ---- radius ------------------------------------------------------------ */
+  --r-group: 12px;      /* grouped list container */
+  --r-tile: 14px;
+  --r-control: 9px;
+  --r-thumb: 7px;       /* segmented-control thumb, concentric inside --r-control */
+  --r-pill: 980px;
+
+  /* ---- motion ------------------------------------------------------------ */
+  /* damping 1.0, response 0.35 — the default for everything that moves */
+  --spring: linear(0, 0.0242, 0.0829, 0.1605, 0.2464, 0.3335, 0.4175, 0.4958, 0.5671, 0.6308, 0.6869, 0.7358, 0.778, 0.8142, 0.845, 0.8711, 0.8931, 0.9116, 0.927, 0.9399, 0.9506, 0.9594, 0.9667, 0.9728, 0.9777, 0.9818, 0.9852, 0.9879, 0.9902, 0.992, 0.9935, 0.9947, 0.9957, 0.9965, 0.9972, 0.9977, 0.9982, 0.9985, 0.9988, 0.999, 0.9992);
+  --spring-ms: 530ms;
+
+  /* damping 1.0, response 0.5 — larger surfaces, which should feel heavier */
+  --spring-slow: linear(0, 0.0238, 0.0816, 0.1582, 0.2431, 0.3294, 0.4129, 0.4909, 0.562, 0.6256, 0.6819, 0.731, 0.7736, 0.8101, 0.8412, 0.8677, 0.89, 0.9088, 0.9246, 0.9377, 0.9487, 0.9578, 0.9653, 0.9716, 0.9767, 0.9809, 0.9844, 0.9873, 0.9896, 0.9916, 0.9931, 0.9944, 0.9955, 0.9963, 0.997, 0.9976, 0.998, 0.9984, 0.9987, 0.999, 0.9992);
+  --spring-slow-ms: 750ms;
+
+  /* damping 0.8, response 0.35 — only after a gesture carried momentum */
+  --spring-bounce: linear(0, 0.0215, 0.0763, 0.1524, 0.2404, 0.3331, 0.4253, 0.5136, 0.5954, 0.6694, 0.7348, 0.7917, 0.8401, 0.8806, 0.914, 0.941, 0.9623, 0.9789, 0.9914, 1.0005, 1.0069, 1.0112, 1.0137, 1.0149, 1.0152, 1.0147, 1.0138, 1.0126, 1.0113, 1.0098, 1.0085, 1.0071, 1.0059, 1.0048, 1.0038, 1.003, 1.0023, 1.0017, 1.0012, 1.0008, 1.0005);
+  --spring-bounce-ms: 490ms;
+
+  /* Non-spring timings, for things that only fade or tint. */
+  --t-press: 110ms;     /* press feedback — must beat perception */
+  --t-tint: 160ms;      /* colour and background changes */
+  --t-fade: 220ms;
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* ---- colour: light ------------------------------------------------------ */
+  --bg: oklch(0.967 0.003 264);
+  --surface: oklch(1 0 0);
+  --fill: oklch(0.945 0.005 264);
+  --fill-hover: oklch(0.915 0.006 264);
+  --fill-press: oklch(0.885 0.007 264);
+  --separator: oklch(0.87 0.005 264);
+  --control-thumb: oklch(1 0 0);
+
+  --label: oklch(0.21 0.006 264);
+  --label-2: oklch(0.46 0.012 264);
+  --label-3: oklch(0.54 0.011 264);
+
+  --accent: oklch(0.57 0.215 258);
+  --accent-fill: oklch(0.57 0.215 258);
+  --accent-press: oklch(0.51 0.2 258);
+  --accent-wash: oklch(0.57 0.215 258 / 0.1);
+  --on-accent: oklch(1 0 0);
+
+  --danger: oklch(0.56 0.205 27);
+  --danger-wash: oklch(0.56 0.205 27 / 0.1);
+
+  /* The only shadows in the system: a segmented-control thumb that has to read
+     as lifted, and a floating toast. Nothing else casts one. */
+  --lift: 0 3px 8px oklch(0.21 0.006 264 / 0.12), 0 1px 1px oklch(0.21 0.006 264 / 0.06);
+  --float: 0 12px 32px oklch(0.21 0.006 264 / 0.18), 0 2px 6px oklch(0.21 0.006 264 / 0.08);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.175 0.005 264);
+    --surface: oklch(0.225 0.006 264);
+    --fill: oklch(0.275 0.007 264);
+    --fill-hover: oklch(0.32 0.008 264);
+    --fill-press: oklch(0.36 0.009 264);
+    --separator: oklch(0.345 0.007 264);
+    --control-thumb: oklch(0.36 0.009 264);
+
+    --label: oklch(0.975 0.002 264);
+    --label-2: oklch(0.73 0.01 264);
+    --label-3: oklch(0.61 0.01 264);
+
+    --accent: oklch(0.68 0.185 253);
+    --accent-fill: oklch(0.56 0.2 253);
+    --accent-press: oklch(0.5 0.19 253);
+    --accent-wash: oklch(0.68 0.185 253 / 0.16);
+    --on-accent: oklch(1 0 0);
+
+    --danger: oklch(0.68 0.18 25);
+    --danger-wash: oklch(0.68 0.18 25 / 0.16);
+
+    --lift: 0 3px 8px oklch(0 0 0 / 0.5), 0 1px 1px oklch(0 0 0 / 0.3);
+    --float: 0 12px 32px oklch(0 0 0 / 0.6), 0 2px 6px oklch(0 0 0 / 0.4);
+
+    color-scheme: dark;
+  }
+}
+
+/* The Appearance setting writes data-theme onto <html> and must win both ways. */
+:root[data-theme="dark"] {
+  --bg: oklch(0.175 0.005 264);
+  --surface: oklch(0.225 0.006 264);
+  --fill: oklch(0.275 0.007 264);
+  --fill-hover: oklch(0.32 0.008 264);
+  --fill-press: oklch(0.36 0.009 264);
+  --separator: oklch(0.345 0.007 264);
+  --control-thumb: oklch(0.36 0.009 264);
+
+  --label: oklch(0.975 0.002 264);
+  --label-2: oklch(0.73 0.01 264);
+  --label-3: oklch(0.61 0.01 264);
+
+  --accent: oklch(0.68 0.185 253);
+  --accent-fill: oklch(0.56 0.2 253);
+  --accent-press: oklch(0.5 0.19 253);
+  --accent-wash: oklch(0.68 0.185 253 / 0.16);
+  --on-accent: oklch(1 0 0);
+
+  --danger: oklch(0.68 0.18 25);
+  --danger-wash: oklch(0.68 0.18 25 / 0.16);
+
+  --lift: 0 3px 8px oklch(0 0 0 / 0.5), 0 1px 1px oklch(0 0 0 / 0.3);
+  --float: 0 12px 32px oklch(0 0 0 / 0.6), 0 2px 6px oklch(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}
+
+/* Higher contrast: solid separators and a defined border on every control. */
+@media (prefers-contrast: more) {
+  :root {
+    --separator: oklch(0.6 0.01 264);
+    --label-2: oklch(0.34 0.012 264);
+    --label-3: oklch(0.4 0.012 264);
+  }
+  :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --separator: oklch(0.55 0.01 264);
+  }
+}
+
+/* ---------- base --------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--label);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--s1);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+::selection { background: var(--accent-wash); }
+
+/* ---------- type roles ---------------------------------------------------- */
+
+.t-large-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.021em;   /* large text reads too loose at default tracking */
+}
+
+.t-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+
+.t-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.003em;
+}
+
+.t-body {
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--label-2);
+  text-wrap: pretty;          /* no single-word last line on a description */
+}
+
+/* Group header. Small caps need positive tracking or the letters crowd. */
+.t-caption {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--label-3);
+}
+
+.t-footnote {
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--label-3);
+}
+
+/* ---------- grouped list -------------------------------------------------- *
+ * The inset grouped table: one rounded surface holding rows, with separators
+ * that start at the content inset rather than running edge to edge.          */
+
+.group {
+  border-radius: var(--r-group);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 44px;
+  padding: 10px var(--s4);
+  position: relative;
+}
+
+.row + .row::before {
+  content: "";
+  position: absolute;
+  inset-inline: var(--s4) 0;
+  top: 0;
+  height: 1px;
+  background: var(--separator);
+}
+
+.row-text { flex: 1; min-width: 0; }
+/* A row's secondary line sits under the label, never trailing it inline. */
+.row-text .t-body { display: block; margin-top: 2px; }
+
+/* A row that is itself a control */
+button.row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--t-tint) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  button.row:hover { background: var(--fill); }
+}
+button.row:active { background: var(--fill-press); transition-duration: var(--t-press); }
+
+.chevron { flex: none; color: var(--label-3); }
+
+/* ---------- segmented control -------------------------------------------- *
+ * The thumb is a lifted neutral surface, not a coloured pill: the selection is
+ * shown by elevation, and the accent stays reserved for the primary action.
+ * JS writes the active option's offsetLeft/offsetWidth onto the thumb.        */
+
+.seg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--r-control);
+  background: var(--fill);
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 0;
+  border-radius: var(--r-thumb);
+  background: var(--control-thumb);
+  box-shadow: var(--lift);
+  transform: translateX(0);
+  transition:
+    transform var(--spring-ms) var(--spring),
+    width var(--spring-ms) var(--spring);
+  will-change: transform, width;
+}
+
+.seg-opt {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  height: 26px;
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-thumb);
+  background: transparent;
+  color: var(--label-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.003em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t-tint) var(--ease-out);
+}
+
+.seg-opt:hover { color: var(--label); }
+.seg-opt[aria-checked="true"] { color: var(--label); font-weight: 600; }
+
+/* Separators between unselected options, hidden next to the thumb. */
+.seg-opt + .seg-opt::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--separator);
+  opacity: 1;
+  transition: opacity var(--t-tint) var(--ease-out);
+}
+.seg-opt[aria-checked="true"]::before,
+.seg-opt[aria-checked="true"] + .seg-opt::before { opacity: 0; }
+
+/* ---------- buttons ------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--fill);
+  color: var(--label);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.003em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-tint) var(--ease-out),
+    transform var(--t-press) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { background: var(--fill-hover); }
+}
+/* Press feedback fires on pointer-down and is faster than anything else. */
+.btn:active { background: var(--fill-press); transform: scale(0.97); }
+
+.btn-primary { background: var(--accent-fill); color: var(--on-accent); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover { background: var(--accent-press); }
+}
+.btn-primary:active { background: var(--accent-press); }
+
+.btn-plain {
+  background: transparent;
+  color: var(--accent);
+  padding: 0 var(--s2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-plain:hover { background: var(--accent-wash); }
+}
+.btn-plain:active { background: var(--accent-wash); }
+
+.btn-danger { color: var(--danger); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-danger:hover { background: var(--danger-wash); }
+}
+
+/* Icon-only control. 30px visual, 44px hit area via the pseudo-element. */
+.icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--label-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-tint) var(--ease-out),
+    color var(--t-tint) var(--ease-out),
+    transform var(--t-press) var(--ease-out);
+}
+
+.icon-btn::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { background: var(--fill); color: var(--label); }
+  .icon-btn.is-danger:hover { background: var(--danger-wash); color: var(--danger); }
+}
+.icon-btn:active { background: var(--fill-press); transform: scale(0.94); }
+
+/* ---------- switch -------------------------------------------------------- */
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--fill-hover);
+  cursor: pointer;
+  transition: background-color var(--t-fade) var(--ease-out);
+}
+
+.switch[aria-checked="true"] { background: var(--accent-fill); }
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: oklch(1 0 0);
+  box-shadow: var(--lift);
+  translate: 0 0;
+  transition: translate var(--spring-ms) var(--spring);
+  will-change: translate;
+}
+
+.switch[aria-checked="true"] .switch-thumb { translate: 16px 0; }
+
+/* ---------- inputs -------------------------------------------------------- */
+
+.input {
+  height: 30px;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--fill);
+  color: var(--label);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background-color var(--t-tint) var(--ease-out);
+}
+
+.input:hover { background: var(--fill-hover); }
+select.input { cursor: pointer; padding-inline-end: var(--s1); }
+input[type="time"].input { font-variant-numeric: tabular-nums; }
+
+/* ---------- utilities ----------------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion means gentler, not absent: colour and opacity still respond,
+   only the travel is removed. */
+@media (prefers-reduced-motion: reduce) {
+  .seg-thumb, .switch-thumb {
+    transition-duration: var(--t-fade);
+    transition-timing-function: var(--ease-out);
+  }
+  .btn:active, .icon-btn:active { transform: none; }
+}

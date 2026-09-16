@@ -1,0 +1,194 @@
+/* ============================================================================
+ * ScreenFX settings
+ * ----------------------------------------------------------------------------
+ * The inset grouped list: sections with a small caps header above and an
+ * explanatory footnote below, rows inside one rounded surface, separators
+ * starting at the content inset. Familiar enough that nobody has to learn it.
+ *
+ * Everything here comes from theme.css. The only values this file adds are
+ * layout ones.
+ * ========================================================================== */
+
+body { min-height: 100vh; }
+
+.page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--s7) var(--s5) 64px;
+}
+
+/* ---------- masthead ------------------------------------------------------ */
+
+.masthead { margin-bottom: var(--s6); }
+.masthead h1 { margin: 0; }
+
+.lede {
+  margin: var(--s2) 0 0;
+  max-width: 46ch;      /* a description this short still reads better capped */
+  font-size: 13.5px;
+}
+
+/* ---------- sections ------------------------------------------------------ */
+
+.section { margin-bottom: var(--s6); }
+
+.section-head {
+  margin: 0 0 var(--s2);
+  padding-inline: var(--s4);
+}
+
+.add-head { margin-top: var(--s5); }
+
+.section-foot {
+  margin: var(--s2) 0 0;
+  padding-inline: var(--s4);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+
+.group + .group { margin-top: var(--s3); }
+
+/* ---------- rows ---------------------------------------------------------- */
+
+.row .seg,
+.row .input,
+.row .btn { margin-inline-start: auto; }
+
+.row-value {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+.row-value + .chevron { margin-inline-start: 6px; }
+
+/* A row whose control needs the full width sits under its label instead of
+   beside it — Repeat has seven targets and will not fit on one line. */
+.row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s2);
+  padding-block: var(--s3);
+}
+
+.row-action { justify-content: flex-end; }
+.row-action .btn { margin-inline-start: 0; height: 32px; padding-inline: var(--s4); }
+
+/* ---------- day picker ---------------------------------------------------- */
+
+.days { display: flex; gap: 6px; }
+
+.day {
+  flex: 1;
+  height: 32px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--fill);
+  color: var(--label-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--t-tint) var(--ease-out),
+    color var(--t-tint) var(--ease-out),
+    transform var(--t-press) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .day:hover { background: var(--fill-hover); color: var(--label); }
+}
+.day:active { transform: scale(0.95); }
+/* Selected days are tinted, not filled. Five solid blue pills in one row out-
+   shout the single primary action, and the accent has to stay scarce to keep
+   meaning "this is the button you want". */
+.day[aria-pressed="true"] {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- schedule rows ------------------------------------------------- */
+
+.item-time {
+  flex: none;
+  min-width: 72px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;   /* times must not shift the row */
+  white-space: nowrap;
+}
+
+.item-main { flex: 1; min-width: 0; }
+.item-effect { display: block; font-size: 13px; font-weight: 500; }
+.item-days { display: block; margin-top: 1px; font-size: 11.5px; color: var(--label-3); }
+
+.item-actions { display: flex; align-items: center; gap: var(--s1); margin-inline-start: auto; }
+.item-actions .switch { margin-inline-start: var(--s2); }
+
+/* A paused schedule reads back one level, without disappearing. */
+.row[data-enabled="false"] .item-time,
+.row[data-enabled="false"] .item-effect { color: var(--label-3); }
+
+/* Enter springs down into place; leave is a plain fade, because a removal
+   should get out of the way rather than perform. */
+@keyframes item-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.row.is-new { animation: item-in var(--spring-ms) var(--spring) both; }
+.row.is-leaving {
+  opacity: 0;
+  transition: opacity var(--t-fade) var(--ease-out);
+  pointer-events: none;
+}
+
+/* ---------- toast --------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s5);
+  z-index: 60;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px var(--s4);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--float);
+  color: var(--label);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  /* Enters and leaves along the same path: up from below, back down. */
+  translate: -50% 14px;
+  transition:
+    opacity var(--t-fade) var(--ease-out),
+    translate var(--t-fade) var(--ease-out);
+}
+
+.toast.is-open {
+  opacity: 1;
+  translate: -50% 0;
+  transition-duration: var(--spring-ms), var(--spring-ms);
+  transition-timing-function: var(--spring), var(--spring);
+}
+
+.toast[data-tone="error"] { color: var(--danger); }
+
+/* ---------- colophon ------------------------------------------------------ */
+
+.colophon { padding-inline: var(--s4); }
+
+/* ---------- narrow -------------------------------------------------------- */
+
+@media (max-width: 520px) {
+  .page { padding: var(--s6) var(--s3) var(--s7); }
+  .row { flex-wrap: wrap; }
+  .row .seg { width: 100%; margin-top: var(--s2); }
+  .row .seg-opt { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row.is-new { animation: none; }
+}
