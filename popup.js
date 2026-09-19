@@ -4,7 +4,7 @@
  * Renders the effect grid, owns the duration setting, and injects content.js
  * into the active tab on click.
  *
- * ADDING A 7TH EFFECT: append one entry to EFFECTS below, matching the function
+ * ADDING A 9TH EFFECT: append one entry to EFFECTS below, matching the function
  * name registered in content.js. The grid, the numbering and the keyboard
  * shortcut all follow from that.
  *
@@ -24,21 +24,46 @@ const EFFECTS = [
   },
   {
     id: 'spiderman',
-    label: 'Web drop',
+    label: 'Web slinger',
     glyph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M3 3.2 9.6 4.4M3 3.2 5.6 9.2M3 3.2 3.9 10.4" opacity=".55"/>
-      <path d="M5.6 4.1 5 7.4 3.5 9.1" opacity=".4"/>
-      <path d="M14.4 2.8v10.4"/>
-      <circle cx="14.4" cy="16.8" r="3.5" fill="currentColor" stroke="none"/>
+      <path d="M21 3.2 14.4 4.4M21 3.2 18.4 9.2M21 3.2 20.1 10.4" opacity=".55"/>
+      <path d="M18.4 4.1 19 7.4 20.5 9.1" opacity=".4"/>
+      <path d="M19.6 3.4 9.6 13.2"/>
+      <circle cx="8.2" cy="16.4" r="3.6" fill="currentColor" stroke="none"/>
+    </svg>`
+  },
+  {
+    id: 'webShooter',
+    label: 'Web shooter',
+    glyph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20.6 21.4 16.4 17.2"/>
+      <path d="M18.8 20.4q-1.6-2.8-.4-4.6M21 18.6q-2.8-1.6-4.6-.4"/>
+      <circle cx="8.2" cy="8.2" r="5.2"/>
+      <path d="M8.2 3v10.4M3 8.2h10.4M4.5 4.5l7.4 7.4M11.9 4.5l-7.4 7.4"/>
     </svg>`
   },
   {
     id: 'waterfall',
     label: 'Flood',
     glyph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M2.4 10.4q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0"/>
-      <path d="M2.4 15.2q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0" opacity=".55"/>
-      <path d="M2.4 20q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0" opacity=".3"/>
+      <path d="M2.4 11.2q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0"/>
+      <path d="M2.4 16q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0" opacity=".5"/>
+      <path d="M2.4 20.8q2.4-2.6 4.8 0t4.8 0 4.8 0 4.8 0" opacity=".3"/>
+      <rect x="5.4" y="6.2" width="6.4" height="2" rx=".8" transform="rotate(-12 8.6 7.2)"/>
+      <rect x="14" y="7.8" width="4.6" height="1.8" rx=".8" transform="rotate(9 16.3 8.7)"/>
+    </svg>`
+  },
+  {
+    id: 'underwater',
+    label: 'Underwater',
+    glyph: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2.6 3.4q2.2-2 4.4 0t4.4 0 4.4 0 4.4 0" opacity=".5"/>
+      <path d="M14.4 13.4c-1.6-2.2-5-2.8-7.2-1.2-.9.7-1.4 1.5-1.4 1.5s.5.8 1.4 1.5c2.2 1.6 5.6 1 7.2-1.2Z"/>
+      <path d="M14.4 13.4 18 10.6v5.6Z"/>
+      <circle cx="8.6" cy="12.8" r=".9" fill="currentColor" stroke="none"/>
+      <circle cx="5" cy="7.6" r="1.1" opacity=".6"/>
+      <circle cx="17.6" cy="19.6" r="1.4" opacity=".6"/>
+      <circle cx="12.6" cy="19" r=".8" opacity=".45"/>
     </svg>`
   },
   {
@@ -236,11 +261,18 @@ async function play(id) {
     // activeTab covers this: the grant was made when the toolbar icon was
     // clicked to open this popup, and it covers exactly this tab.
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    await chrome.scripting.executeScript({
+    // play() reports whether it actually started. Without checking it, a tab
+    // still holding an older build just does nothing when asked for an effect
+    // that build has never heard of, and the popup closes as if it worked.
+    const [res] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: (name, ms) => window.__screenFX && window.__screenFX.play(name, { duration: ms }),
+      func: (name, ms) => !!(window.__screenFX && window.__screenFX.play(name, { duration: ms })),
       args: [id, duration]
     });
+    if (!res || res.result !== true) {
+      fail('That effect didn’t start. Reload the page and try again.');
+      return;
+    }
 
     save({ lastEffect: id });
     // Let the press state finish reading before the popup disappears.

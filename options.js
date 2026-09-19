@@ -10,8 +10,10 @@
 const EFFECT_LABELS = {
   random: 'Random effect',
   prisonBars: 'Prison bars',
-  spiderman: 'Web drop',
+  spiderman: 'Web slinger',
+  webShooter: 'Web shooter',
   waterfall: 'Flood',
+  underwater: 'Underwater',
   glitch: 'Glitch',
   confetti: 'Confetti',
   crack: 'Screen crack'

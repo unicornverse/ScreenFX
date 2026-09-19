@@ -1,6 +1,6 @@
 # ScreenFX
 
-A "click when bored" Chrome extension. Hit the toolbar icon, pick one of six effects, and
+A "click when bored" Chrome extension. Hit the toolbar icon, pick one of eight effects, and
 a full-screen animation plays over whatever tab you're on, then cleans itself up. You
 choose how long it lasts, and you can book one in advance so it ambushes you at 4pm on a
 Tuesday.
@@ -26,13 +26,15 @@ popup says so under the grid instead of failing silently.
 | # | Effect | What happens |
 |---|--------|--------------|
 | 1 | Prison bars | Steel bars slam down with overshoot, the screen takes an impact shake, bars lift back up |
-| 2 | Web drop | A silk thread unspools from a top corner, a silhouette drops and swings on it, then reels back up |
-| 3 | Flood | Three wave layers rise at different speeds and periods, hold, then drain |
-| 4 | Glitch | Backdrop-filter slices tear through the real page, chromatic fringing, scanlines, inversion hits |
-| 5 | Confetti | Mixed shapes fall with independent sway and tumble |
-| 6 | Screen crack | A tapered fracture shatters outward from a random impact point with concentric rings |
+| 2 | Web slinger | A line anchors in the top-right corner and lowers a web-slinger smoothly down the page, where he hangs and sways before being drawn back up |
+| 3 | Web shooter | A gloved forearm reaches in from the bottom-right and tracks your pointer. Click anywhere and a line thwips out to a web that sticks |
+| 4 | Flood | Silt-laden water surges up from below, swallows the page whole, drifts debris across its surface, then drains away |
+| 5 | Underwater | The page goes under. Light shafts, caustics, rising bubbles and fish swimming past at three depths |
+| 6 | Glitch | Backdrop-filter slices tear through the real page, chromatic fringing, scanlines, inversion hits |
+| 7 | Confetti | Mixed shapes fall with independent sway and tumble |
+| 8 | Screen crack | A dropped phone: cracked cover glass over a broken display — liquid-crystal bleed, driver line bands, rainbow mura and backlight blowout |
 
-Press **1–6** in the popup to play one without clicking. Every overlay has a dismiss
+Press **1–8** in the popup to play one without clicking. Every overlay has a dismiss
 button in the top-right whose ring counts the remaining time down, and **Esc** ends an
 effect early.
 
@@ -52,11 +54,48 @@ Two deliberate exceptions:
 - **Glitch caps its strobing at 3 cycles (~4.7s)** no matter what you set, then settles
   into a non-strobing dead-signal wash for the rest. A 30-second strobe is a
   photosensitivity hazard, not a longer joke.
-- **Flood compresses** rather than overruns. Its rise and drain are ~3.3s together, which
+- **Flood compresses** rather than overruns. Its surge and drain are ~2.6s together, which
   does not fit the 3s setting, so both scale down to land inside the budget.
 
-Under `prefers-reduced-motion: reduce` the camera shakes are dropped and Glitch replaces
-its strobe with a single soft desaturating wash.
+Under `prefers-reduced-motion: reduce` the camera shakes are dropped, Glitch replaces its
+strobe with a single soft desaturating wash, the web slinger's rope is damped so it descends
+straight instead of swaying, the flood skips its spray, and the cracked panel stops flickering.
+
+## Where the effects get their behaviour
+
+Four of the eight are built on measured physics or on reference photography rather than on
+hand-tuned keyframes, because the details that make something read as real are exactly the
+ones intuition gets wrong:
+
+- **Web slinger** is a verlet rope — 18 nodes, fixed 1/120s timestep, 8 Gauss-Seidel
+  constraint passes with the sweep direction alternating, and a bend constraint over the
+  first few nodes so the line does not kink at its anchor. The rope pays out slower than he
+  would fall, so it never goes slack: he is lowered rather than dropped. The physics is
+  there for the sag, the slow pendulum (T = 2π√(L/g), about 2.7s at this length) and the way
+  his arms trail the sway and settle late. Constraint iterations are kept deliberately low —
+  a stiff solver propagates an impulse down the whole chain in one frame, which is what
+  makes a simulated rope look like a pole.
+- **Flood** is opaque on purpose. Flood water is silt-laden, so anything it covers is simply
+  gone until it leaves, and a heavy backdrop-filter under a silt-coloured body is the only
+  honest way to take the page away without touching the page. A surge rises fast and then
+  slows as it spreads, so the rise is strongly eased out; the surface runs two crests at
+  different periods against each other, because a single scrolling wave reads as a loop.
+- **Underwater** sells depth through parallax rather than through blue. Three layers: the far
+  one small, pale, blurred and slow, the near one large, sharp and across the screen in a few
+  seconds. Tail beat scales with fish size, which is most of what separates a shoal from a
+  set of clones.
+- **Screen crack** is two damaged layers, and the second is the one people actually name. The
+  glass: a fracture is a sub-micron air gap, so it is an optical element, not a pen stroke —
+  silver and bright on a dark page, mid-grey with a specular flank on a bright one, alpha
+  wandering along its length, tapering where it arrests. Radials form first and all launch at
+  once; concentric cracks form on the rebound as straight chords between adjacent radials, so
+  the result is a mesh of panes whose size grows with distance from a pulverised core. The
+  panel: liquid crystal bled out of ruptured cells as an opaque amoeba with a violet and amber
+  fringe, driver damage as hard saturated bands that ignore the crack geometry entirely,
+  pressure mura, backlight blowout, and an irregular flicker. Modern panels are laminated to
+  the cover glass with about 0.2mm of adhesive, so the fragments cannot move — offsetting
+  shards of content reads as a broken mirror, not a broken phone, and this deliberately
+  does not do it.
 
 ## Schedules
 
@@ -160,7 +199,7 @@ Effects that need to stay legible on both light and dark pages (Web Drop, Screen
 sample the page's background luminance and pick their line colour from it, backed by a
 halo in the opposite tone.
 
-## Adding a seventh effect
+## Adding a ninth effect
 
 1. In `content.js`, write the effect:
 
@@ -195,7 +234,8 @@ function myEffect(stage, css, ctx) {
 2. Register it:
 
 ```js
-const EFFECTS = { prisonBars, spiderman, waterfall, glitch, confetti, crack, myEffect };
+const EFFECTS = { prisonBars, spiderman: webSlinger, webShooter, waterfall: flood,
+                  underwater, glitch, confetti, crack, myEffect };
 ```
 
 3. In `popup.js`, append one entry to the `EFFECTS` array with a matching `id`, a `label`,
