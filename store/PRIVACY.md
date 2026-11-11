@@ -36,4 +36,4 @@ If this policy changes, the new version will be published at this same address w
 
 ## Contact
 
-Questions about this policy: _add your support email or repository Issues link here._
+Questions about this policy or Screenick: [jigarr.kushwaha@gmail.com](mailto:jigarr.kushwaha@gmail.com)
