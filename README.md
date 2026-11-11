@@ -1,4 +1,4 @@
-# ScreenFX
+# Screenick
 
 A "click when bored" Chrome extension. Hit the toolbar icon, pick one of twelve effects, and
 a full-screen animation plays over whatever tab you're on, then cleans itself up. You
@@ -13,7 +13,7 @@ plain CSS, SVG, canvas and vanilla JS.
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select this folder.
-4. Pin ScreenFX to the toolbar, open any normal web page, and click the icon.
+4. Pin Screenick to the toolbar, open any normal web page, and click the icon.
 
 Reload the extension from `chrome://extensions` after editing any file.
 
@@ -110,7 +110,7 @@ closed.
 
 ### Why scheduling asks for an extra permission
 
-By default ScreenFX requests only `activeTab` — access to one tab, granted because you
+By default Screenick requests only `activeTab` — access to one tab, granted because you
 clicked the toolbar icon, expiring when you navigate away. There is no install-time
 "read and change all your data on all websites" warning.
 
@@ -147,7 +147,7 @@ tools/make-icons.mjs   regenerates the PNGs (npm install && npm run icons)
 There is no `effects.css`: each effect emits its own CSS at runtime through the `css()`
 callback it is handed, into a `<style>` tag that lives inside the overlay. When the
 overlay is removed the styles go with it, so nothing can leak into the host page. Every
-selector is scoped under `#__screenfx_root`.
+selector is scoped under `#__screenick_root`.
 
 ## Design
 
@@ -198,7 +198,7 @@ its own page without that grant.
 **Injection.** `sfxPlayInTab()` in `effects.js` runs the whole sequence. It injects
 `SFX_FILES` (the `content.js` core, then every `fx/*.js` module, each registering itself),
 stops any live effect, captures the tab, then calls
-`window.__screenFX.play(name, { duration, pool, snapshot })`. `play()` is async and
+`window.__screenick.play(name, { duration, pool, snapshot })`. `play()` is async and
 resolves to whether the effect started. The core guards against double-definition by
 `RUNTIME` version, so a newer build replaces an older one in a tab that is already open.
 

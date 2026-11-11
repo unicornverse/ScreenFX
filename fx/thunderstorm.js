@@ -1,6 +1,6 @@
-/* ScreenFX effect module — registers into the runtime in content.js. */
+/* Screenick effect module — registers into the runtime in content.js. */
 (() => {
-  const sfx = window.__screenFX;
+  const sfx = window.__screenick;
   if (!sfx || !sfx.kit) return;
   // eslint-disable-next-line no-unused-vars
   const { R, SPRING, SPRING_MS, rand, rint, pick, clamp, svgFrom, el, div, later, listen, loop, canvasLayer, envelope, easeOut3, easeIn2, shake, breathe, pageLuminance, gl, lockScroll, blocks } = sfx.kit;
@@ -260,7 +260,7 @@ void main() {
 
     let fx = null;
     try { fx = gl(stage, FRAG, { snapshot: ctx.snapshot }); } catch (err) {
-      console.warn('[ScreenFX] thunderstorm shader, using fallback:', err);
+      console.warn('[Screenick] thunderstorm shader, using fallback:', err);
       fx = null;
       stage.textContent = '';
     }

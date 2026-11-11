@@ -1,5 +1,5 @@
 /* ============================================================================
- * ScreenFX — effect catalogue
+ * Screenick — effect catalogue
  * ----------------------------------------------------------------------------
  * The one list of effects the UI knows about. Loaded by popup.html and
  * options.html before their own scripts; content.js owns the implementations
@@ -61,7 +61,7 @@ async function sfxCapture(windowId) {
   try {
     return await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 92 });
   } catch (err) {
-    console.warn('[ScreenFX] capture skipped:', err && err.message);
+    console.warn('[Screenick] capture skipped:', err && err.message);
     return null;
   }
 }
@@ -76,7 +76,7 @@ async function sfxPlayInTab(tab, effect, duration, pool) {
   const [prev] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      const s = window.__screenFX;
+      const s = window.__screenick;
       const was = !!(s && s.isPlaying && s.isPlaying());
       if (s) s.stop();
       return was;
@@ -87,7 +87,7 @@ async function sfxPlayInTab(tab, effect, duration, pool) {
   const [res] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: async (name, ms, p, snap) =>
-      !!(window.__screenFX && await window.__screenFX.play(name, { duration: ms, pool: p, snapshot: snap })),
+      !!(window.__screenick && await window.__screenick.play(name, { duration: ms, pool: p, snapshot: snap })),
     args: [effect, duration, pool || null, snapshot]
   });
   return !!(res && res.result === true);

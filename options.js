@@ -1,5 +1,5 @@
 /* ============================================================================
- * ScreenFX settings
+ * Screenick settings
  * ----------------------------------------------------------------------------
  * Owns the defaults (duration, appearance) and the schedule list. The service
  * worker owns the alarms — this page only writes chrome.storage.sync, and
@@ -45,7 +45,7 @@ async function load() {
     settings = { ...DEFAULTS, ...(data.settings || {}) };
     schedules = Array.isArray(data.schedules) ? data.schedules : [];
   } catch (err) {
-    console.warn('[ScreenFX] could not read storage:', err);
+    console.warn('[Screenick] could not read storage:', err);
     toast('Unable to read your settings. Changes may not be saved.', 'error');
   }
 }
@@ -55,7 +55,7 @@ async function saveSettings(patch) {
   try {
     await chrome.storage.sync.set({ settings });
   } catch (err) {
-    console.warn('[ScreenFX] could not save settings:', err);
+    console.warn('[Screenick] could not save settings:', err);
     toast('Unable to save that setting. Try again.', 'error');
   }
 }
@@ -64,7 +64,7 @@ async function saveSchedules() {
   try {
     await chrome.storage.sync.set({ schedules });
   } catch (err) {
-    console.warn('[ScreenFX] could not save schedules:', err);
+    console.warn('[Screenick] could not save schedules:', err);
     toast('Unable to save the schedule. Try again.', 'error');
   }
 }
@@ -402,7 +402,7 @@ $('poolAll').addEventListener('click', async () => {
    ordinary script — it is the same file the popup injects into a website. */
 let runtimeReady = null;
 function loadRuntime() {
-  if (window.__screenFX) return Promise.resolve();
+  if (window.__screenick) return Promise.resolve();
   if (!runtimeReady) {
     runtimeReady = new Promise((resolve, reject) => {
       // in order: the runtime, then each effect module registering into it
@@ -425,17 +425,17 @@ async function preview(effect, duration) {
     await loadRuntime();
     // Preview on this very page, so effects that act on the real page have
     // something real to act on.
-    window.__screenFX.stop();
+    window.__screenick.stop();
     await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 40)));
     const snapshot = await sfxCapture(chrome.windows ? chrome.windows.WINDOW_ID_CURRENT : undefined);
     if (snapshot) snapshotSeen = true;
-    ok = await window.__screenFX.play(effect, {
+    ok = await window.__screenick.play(effect, {
       duration: duration || settings.duration,
       pool: settings.randomPool,
       snapshot
     });
   } catch (err) {
-    console.warn('[ScreenFX] preview failed:', err);
+    console.warn('[Screenick] preview failed:', err);
   }
   if (!ok) toast('Unable to play that preview.', 'error');
   else if (!snapshotSeen) {
@@ -513,7 +513,7 @@ function toast(text, tone) {
 
   const v = chrome.runtime.getManifest().version;
   $('version').textContent = 'v' + v;
-  $('colophon').textContent = `ScreenFX ${v} · ${SFX_EFFECTS.length} effects · nothing leaves your browser`;
+  $('colophon').textContent = `Screenick ${v} · ${SFX_EFFECTS.length} effects · nothing leaves your browser`;
   showPermission(await hasPermission());
 
   // Two frames: one for layout, one for font metrics to settle, so each thumb

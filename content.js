@@ -1,14 +1,14 @@
 /* ============================================================================
- * ScreenFX — injected effect runtime
+ * Screenick — injected effect runtime
  * ----------------------------------------------------------------------------
  * Injected on demand by the popup (user click) or the service worker (a
  * schedule firing). Re-injecting the same build into a page is a no-op; a
  * NEWER build replaces the old one (see RUNTIME below). Callers then just call
- * window.__screenFX.play(name, opts).
+ * window.__screenick.play(name, opts).
  *
  * LAYOUT
  *   content.js      this file: overlay lifecycle, helpers (`kit`), WebGL, play()
- *   fx/<name>.js    one module per effect; each calls window.__screenFX.register()
+ *   fx/<name>.js    one module per effect; each calls window.__screenick.register()
  *   The injection order lives in SFX_FILES (effects.js): this file first.
  *
  * ADDING AN EFFECT
@@ -51,13 +51,13 @@
      newly added effect silently does nothing until that tab is reloaded. The
      version check turns "reload every tab" into "the newest build wins". */
   const RUNTIME = 4;
-  const prev = window.__screenFX;
+  const prev = window.__screenick;
   if (prev) {
     if (prev.version === RUNTIME) return;      // same build, nothing to do
     try { prev.stop(); } catch (err) { /* older build, already torn down */ }
   }
 
-  const ROOT_ID = '__screenfx_root';
+  const ROOT_ID = '__screenick_root';
   const R = '#' + ROOT_ID;
   const DEFAULT_MS = 6000;
   const MIN_MS = 1500;
@@ -214,7 +214,7 @@ ${R} .sfx-ring-fg{stroke:rgba(255,255,255,.92);stroke-width:2;stroke-dasharray:$
     // motion should never be the only feedback channel.
     const btn = el('button', 'sfx-dismiss');
     btn.type = 'button';
-    btn.setAttribute('aria-label', 'Dismiss ScreenFX effect');
+    btn.setAttribute('aria-label', 'Dismiss Screenick effect');
     btn.title = 'Dismiss (Esc)';
     const ring = svgFrom(`<svg xmlns="http://www.w3.org/2000/svg" class="sfx-ring" viewBox="0 0 34 34">
       <circle class="sfx-ring-bg" cx="17" cy="17" r="${RING_R}"/>
@@ -338,7 +338,7 @@ vec4 voronoi(vec2 p) { vec2 n = floor(p), f = fract(p), mg, mr; float md = 8.0;
       if (!g.getShaderParameter(sh, g.COMPILE_STATUS)) {
         const log = g.getShaderInfoLog(sh);
         g.deleteShader(sh);
-        throw new Error('[ScreenFX] shader: ' + log);
+        throw new Error('[Screenick] shader: ' + log);
       }
       return sh;
     };
@@ -347,7 +347,7 @@ vec4 voronoi(vec2 p) { vec2 n = floor(p), f = fract(p), mg, mr; float md = 8.0;
       'attribute vec2 p; varying vec2 vUv; void main(){ vUv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }'));
     g.attachShader(prog, compile(g.FRAGMENT_SHADER, GLSL_LIB + frag));
     g.linkProgram(prog);
-    if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error('[ScreenFX] link: ' + g.getProgramInfoLog(prog));
+    if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error('[Screenick] link: ' + g.getProgramInfoLog(prog));
     g.useProgram(prog);
 
     const buf = g.createBuffer();
@@ -455,7 +455,7 @@ vec4 voronoi(vec2 p) { vec2 n = floor(p), f = fract(p), mg, mr; float md = 8.0;
       await img.decode();
       return img;
     } catch (err) {
-      console.warn('[ScreenFX] snapshot unusable:', err);
+      console.warn('[Screenick] snapshot unusable:', err);
       return null;
     }
   }
@@ -516,7 +516,7 @@ vec4 voronoi(vec2 p) { vec2 n = floor(p), f = fract(p), mg, mr; float md = 8.0;
       ms = fx(stage, css, ctx) || duration;
     } catch (err) {
       destroy();
-      console.error('[ScreenFX]', id, err);
+      console.error('[Screenick]', id, err);
       return false;
     }
 
@@ -533,7 +533,7 @@ vec4 voronoi(vec2 p) { vec2 n = floor(p), f = fract(p), mg, mr; float md = 8.0;
     canvasLayer, envelope, easeOut3, easeIn2, shake, breathe, pageLuminance, gl, lockScroll, blocks
   };
 
-  window.__screenFX = {
+  window.__screenick = {
     version: RUNTIME, play, stop: destroy, register, kit,
     list: () => Object.keys(EFFECTS),
     isPlaying: () => !!document.getElementById(ROOT_ID)

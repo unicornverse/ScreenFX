@@ -1,6 +1,6 @@
-/* ScreenFX effect module — registers into the runtime in content.js. */
+/* Screenick effect module — registers into the runtime in content.js. */
 (() => {
-  const sfx = window.__screenFX;
+  const sfx = window.__screenick;
   if (!sfx || !sfx.kit) return;
   // eslint-disable-next-line no-unused-vars
   const { R, SPRING, SPRING_MS, rand, rint, pick, clamp, svgFrom, el, div, later, listen, loop, canvasLayer, envelope, easeOut3, easeIn2, shake, breathe, pageLuminance, gl, lockScroll, blocks } = sfx.kit;
@@ -74,7 +74,7 @@
     cands.sort((a, b) => b.bottom - a.bottom);
     for (const c of cands) {
       const hit = document.elementFromPoint(clamp(wantX, 1, W - 1), c.bottom - 3);
-      if (!hit || (hit.closest && hit.closest('#__screenfx_root'))) continue;
+      if (!hit || (hit.closest && hit.closest('#__screenick_root'))) continue;
       if (c.n && !(c.n === hit || c.n.contains(hit))) continue;
       return c;
     }
@@ -493,7 +493,7 @@ ${R} .sfx-hint span{display:inline-block;padding:7px 14px;border-radius:999px;
       try { n = document.elementFromPoint(x, y); } catch (err) { n = null; }
       hit.style.pointerEvents = '';
       while (n && n !== document.body && n !== document.documentElement) {
-        if (n.closest && n.closest('#__screenfx_root')) return null;
+        if (n.closest && n.closest('#__screenick_root')) return null;
         const r = n.getBoundingClientRect();
         // only things with a visible boundary: media, controls, styled boxes.
         // A paragraph's line box is not an edge silk could fold over.

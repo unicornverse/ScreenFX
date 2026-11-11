@@ -1,6 +1,6 @@
-/* ScreenFX effect module — registers into the runtime in content.js. */
+/* Screenick effect module — registers into the runtime in content.js. */
 (() => {
-  const sfx = window.__screenFX;
+  const sfx = window.__screenick;
   if (!sfx || !sfx.kit) return;
   // eslint-disable-next-line no-unused-vars
   const { R, SPRING, SPRING_MS, rand, rint, pick, clamp, svgFrom, el, div, later, listen, loop, canvasLayer, envelope, easeOut3, easeIn2, shake, breathe, pageLuminance, gl, lockScroll, blocks } = sfx.kit;
@@ -70,7 +70,7 @@
         if (seen.has(key)) return;
         seen.add(key);
         const n = document.elementFromPoint(clamp(b.x + b.w / 2, 1, W - 1), clamp(b.y + 3, 1, H - 1));
-        if (n && n.closest && n.closest('#__screenfx_root')) return;
+        if (n && n.closest && n.closest('#__screenick_root')) return;
         add(b.x, b.x + b.w, b.y, SOLID[b.tag], b.tag);
       }
     });

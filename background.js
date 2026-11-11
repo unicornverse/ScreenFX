@@ -1,5 +1,5 @@
 /* ============================================================================
- * ScreenFX — service worker
+ * Screenick — service worker
  * ----------------------------------------------------------------------------
  * Owns three things the popup cannot:
  *   1. scheduled effects (chrome.alarms)
@@ -49,7 +49,7 @@ async function getSettings() {
     return { ...DEFAULT_SETTINGS, ...(settings || {}) };
   } catch (err) {
     // sync storage can be unavailable (profile without sign-in, quota, policy)
-    console.warn('[ScreenFX] settings read failed:', err);
+    console.warn('[Screenick] settings read failed:', err);
     return { ...DEFAULT_SETTINGS };
   }
 }
@@ -59,7 +59,7 @@ async function getSchedules() {
     const { schedules } = await chrome.storage.sync.get('schedules');
     return Array.isArray(schedules) ? schedules : [];
   } catch (err) {
-    console.warn('[ScreenFX] schedules read failed:', err);
+    console.warn('[Screenick] schedules read failed:', err);
     return [];
   }
 }
@@ -127,7 +127,7 @@ async function migrateRetired() {
       await chrome.storage.sync.set({ settings });
     }
   } catch (err) {
-    console.warn('[ScreenFX] migration skipped:', err);
+    console.warn('[Screenick] migration skipped:', err);
   }
 }
 
@@ -174,7 +174,7 @@ async function fireOnActiveTab(effect, duration, scheduled, pool = null) {
   } catch (err) {
     // Expected on chrome://, the Web Store, other extensions and the PDF
     // viewer — and on every page if the schedule grant was revoked.
-    console.warn('[ScreenFX] injection skipped:', err && err.message);
+    console.warn('[Screenick] injection skipped:', err && err.message);
     if (scheduled) {
       const granted = await chrome.permissions.contains(ALL_URLS).catch(() => false);
       await flashBadge(granted ? '·' : '!', granted ? '#8B8470' : '#FF6A46');

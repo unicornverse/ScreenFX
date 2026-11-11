@@ -1,5 +1,5 @@
 /* ============================================================================
- * ScreenFX popup
+ * Screenick popup
  * ----------------------------------------------------------------------------
  * Renders the effect grid from effects.js, owns the duration setting, and
  * injects content.js into the active tab on click.
@@ -132,7 +132,7 @@ async function save(patch) {
     await chrome.storage.sync.set({ settings: { ...(settings || {}), ...patch } });
   } catch (err) {
     // Not worth interrupting for — the setting just will not stick.
-    console.warn('[ScreenFX] could not save settings:', err);
+    console.warn('[Screenick] could not save settings:', err);
   }
 }
 
@@ -141,7 +141,7 @@ async function restore() {
   try {
     ({ settings = {} } = await chrome.storage.sync.get('settings'));
   } catch (err) {
-    console.warn('[ScreenFX] could not read settings:', err);
+    console.warn('[Screenick] could not read settings:', err);
   }
 
   if (settings.theme && settings.theme !== 'auto') {
@@ -209,8 +209,8 @@ async function play(id) {
     // Let the press state finish reading before the popup disappears.
     setTimeout(() => window.close(), 120);
   } catch (err) {
-    console.warn('[ScreenFX]', err);
-    fail('ScreenFX can’t run on this page. Open a website and try again.');
+    console.warn('[Screenick]', err);
+    fail('Screenick can’t run on this page. Open a website and try again.');
   }
 }
 
@@ -229,7 +229,7 @@ async function openSettings() {
   try {
     await chrome.runtime.openOptionsPage();
   } catch (err) {
-    console.warn('[ScreenFX] could not open settings:', err);
+    console.warn('[Screenick] could not open settings:', err);
     await chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
   }
   window.close();

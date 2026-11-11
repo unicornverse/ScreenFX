@@ -1,6 +1,6 @@
-/* ScreenFX effect module — registers into the runtime in content.js. */
+/* Screenick effect module — registers into the runtime in content.js. */
 (() => {
-  const sfx = window.__screenFX;
+  const sfx = window.__screenick;
   if (!sfx || !sfx.kit) return;
   const { R, rand, clamp, div, loop, canvasLayer, gl, lockScroll } = sfx.kit;
 

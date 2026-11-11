@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ScreenFX",
+  "name": "Screenick",
   "version": "2.0.0",
   "description": "Click when bored. Twelve full-screen visual pranks for whatever tab you are on, on demand or on a timer.",
   "permissions": ["activeTab", "scripting", "storage", "alarms"],
@@ -10,7 +10,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ScreenFX \u2014 pick a prank",
+    "default_title": "Screenick \u2014 pick a prank",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -24,7 +24,7 @@
   },
   "commands": {
     "surprise-me": {
-      "description": "Play a random ScreenFX effect on this tab"
+      "description": "Play a random Screenick effect on this tab"
     }
   },
   "icons": {
