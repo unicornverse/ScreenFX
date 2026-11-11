@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="underwater-bg" x1="14" y1="0" x2="50" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14B3A8"/><stop offset="1" stop-color="#1C4FB8"/></linearGradient>
+<linearGradient id="underwater-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="underwater-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.28"/></filter>
+<clipPath id="underwater-clip"><rect width="64" height="64" rx="15"/></clipPath>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#underwater-bg)"/>
+<g clip-path="url(#underwater-clip)"><path d="M24-2h9L22 66H8zM40-2h6L39 66h-9z" fill="#fff" fill-opacity=".09"/></g>
+<rect width="64" height="64" rx="15" fill="url(#underwater-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#underwater-sh)">
+<path d="M44 37L53 29.5Q51.5 37 53 44.5Z" fill="#9EF0E2" stroke="#9EF0E2" stroke-width="2" stroke-linejoin="round"/>
+<path d="M13 37C17 28.5 26 26 34 28.5C38.5 30 42 33 45 37C42 41 38.5 44 34 45.5C26 48 17 45.5 13 37Z" fill="#fff"/>
+<path d="M28 29.5Q31 25 36 25.5L35 30Z" fill="#fff"/>
+<path d="M30 32Q32.5 37 30 42" fill="none" stroke="#9EF0E2" stroke-width="2.25" stroke-linecap="round"/>
+<circle cx="21" cy="35.5" r="2.4" fill="#174A86"/>
+<circle cx="22" cy="20" r="3.2" fill="none" stroke="#fff" stroke-width="2"/>
+<circle cx="16" cy="13" r="2" fill="none" stroke="#fff" stroke-width="2"/>
+<circle cx="27.5" cy="13.5" r="1.6" fill="#fff"/>
+</g>
+</svg>

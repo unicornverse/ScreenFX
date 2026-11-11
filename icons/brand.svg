@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="brand-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4F7BFF"/><stop offset="1" stop-color="#8A4DFF"/></linearGradient>
+<linearGradient id="brand-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="brand-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#1B0F5C" flood-opacity=".3"/></filter>
+<path id="brand-star" d="M43 9Q44.6 20.4 56 22Q44.6 23.6 43 35Q41.4 23.6 30 22Q41.4 20.4 43 9Z"/>
+<mask id="brand-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+<rect width="64" height="64" fill="#fff"/>
+<use href="#brand-star" fill="#000" stroke="#000" stroke-width="7" stroke-linejoin="round"/>
+</mask>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#brand-bg)"/>
+<rect width="64" height="64" rx="15" fill="url(#brand-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#brand-sh)">
+<rect x="9.5" y="24.5" width="36" height="28" rx="6.5" fill="none" stroke="#fff" stroke-width="5" mask="url(#brand-gap)"/>
+<use href="#brand-star" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+</g>
+</svg>

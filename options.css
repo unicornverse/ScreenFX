@@ -1,43 +1,133 @@
 /* ============================================================================
  * ScreenFX settings
  * ----------------------------------------------------------------------------
- * The inset grouped list: sections with a small caps header above and an
- * explanatory footnote below, rows inside one rounded surface, separators
- * starting at the content inset. Familiar enough that nobody has to learn it.
- *
- * Everything here comes from theme.css. The only values this file adds are
- * layout ones.
+ * Inset grouped lists for the settings themselves, and one gallery of effect
+ * cards — the only part of the page with colour, because the colour is the
+ * effects. Everything else comes from theme.css; this file adds layout.
  * ========================================================================== */
 
-body { min-height: 100vh; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  min-height: 100vh;
+  /* one faint brand wash behind the masthead, so the page has a top */
+  background:
+    radial-gradient(900px 340px at 50% -120px, oklch(0.62 0.2 277 / 0.12), transparent 70%),
+    var(--bg);
+  background-repeat: no-repeat;
+}
 
 .page {
-  max-width: 600px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: var(--s7) var(--s5) 64px;
+  padding: var(--s7) var(--s5) 72px;
 }
 
 /* ---------- masthead ------------------------------------------------------ */
 
-.masthead { margin-bottom: var(--s6); }
-.masthead h1 { margin: 0; }
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  margin-bottom: var(--s6);
+}
+
+.mast-icon {
+  flex: none;
+  border-radius: 13px;
+  box-shadow: 0 10px 24px -10px rgb(91 92 255 / 0.65), 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.mast-text h1 { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-wash);
+  color: var(--accent);
+  font: 600 11px/1 var(--font-text);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
 
 .lede {
-  margin: var(--s2) 0 0;
-  max-width: 46ch;      /* a description this short still reads better capped */
+  margin: var(--s1) 0 0;
+  max-width: 46ch;
   font-size: 13.5px;
+}
+
+/* ---------- section tabs (anchor nav) ------------------------------------- */
+
+.tabs {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  gap: 2px;
+  width: max-content;
+  margin: 0 0 var(--s6);
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: color-mix(in oklch, var(--surface) 82%, transparent);
+  box-shadow: 0 0 0 1px var(--separator), 0 8px 24px -14px oklch(0.2 0.02 270 / 0.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+}
+
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  color: var(--label-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--t-tint) var(--ease-out), color var(--t-tint) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover { background: var(--fill); color: var(--label); }
+}
+.tab[aria-current="true"] { background: var(--fill-hover); color: var(--label); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .tabs { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 /* ---------- sections ------------------------------------------------------ */
 
-.section { margin-bottom: var(--s6); }
+.section { margin-bottom: 44px; }
 
-.section-head {
-  margin: 0 0 var(--s2);
-  padding-inline: var(--s4);
+.section-title {
+  margin: 0 0 var(--s3);
+  padding-inline: var(--s1);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
 }
 
-.add-head { margin-top: var(--s5); }
+.section-bar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  margin-bottom: var(--s1);
+}
+.section-bar .section-title { margin-bottom: 0; }
+.section-bar .btn { margin-inline-start: auto; align-self: center; }
+
+.section-lede {
+  margin: 0 0 var(--s3);
+  padding-inline: var(--s1);
+  max-width: 62ch;
+}
+
+.add-head {
+  margin: var(--s6) 0 var(--s2);
+  padding-inline: var(--s4);
+}
 
 .section-foot {
   margin: var(--s2) 0 0;
@@ -52,17 +142,12 @@ body { min-height: 100vh; }
 
 .row .seg,
 .row .input,
-.row .btn { margin-inline-start: auto; }
+.row .select-wrap { margin-inline-start: auto; }
 
-.row-value {
-  margin-inline-start: auto;
-  white-space: nowrap;
-}
-
+.row-value { margin-inline-start: auto; white-space: nowrap; }
 .row-value + .chevron { margin-inline-start: 6px; }
 
-/* A row whose control needs the full width sits under its label instead of
-   beside it — Repeat has seven targets and will not fit on one line. */
+/* Repeat has seven targets and will not fit beside its label. */
 .row-stack {
   flex-direction: column;
   align-items: stretch;
@@ -71,7 +156,83 @@ body { min-height: 100vh; }
 }
 
 .row-action { justify-content: flex-end; }
-.row-action .btn { margin-inline-start: 0; height: 32px; padding-inline: var(--s4); }
+.row-action .btn { height: 32px; padding-inline: var(--s4); }
+
+.select-wrap { display: inline-flex; align-items: center; gap: var(--s2); }
+.select-icon { display: block; border-radius: 6px; }
+#addEffect { min-width: 160px; }
+
+/* ---------- effect gallery ------------------------------------------------ */
+
+.fx-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.fx-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "icon name  switch"
+    "icon blurb switch";
+  align-content: center;
+  column-gap: var(--s3);
+  row-gap: 2px;
+  align-items: center;
+  min-height: 72px;
+  padding: var(--s3);
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px oklch(0.2 0.02 270 / 0.04);
+  transition: opacity var(--t-fade) var(--ease-out);
+}
+
+.fx-icon-btn {
+  grid-area: icon;
+  position: relative;
+  align-self: start;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--t-press) var(--ease-out);
+}
+.fx-icon-btn img {
+  display: block;
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  box-shadow: 0 1px 1px oklch(0.2 0.02 270 / 0.12), 0 4px 10px -4px oklch(0.2 0.02 270 / 0.35);
+  transition: filter var(--t-fade) var(--ease-out);
+}
+/* the play badge only shows on intent, so twelve of them don't shout */
+.fx-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgb(10 10 20 / 0.42);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--t-tint) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fx-icon-btn:hover .fx-play { opacity: 1; }
+}
+.fx-icon-btn:focus-visible .fx-play { opacity: 1; }
+.fx-icon-btn:active { transform: scale(0.94); }
+
+.fx-name { grid-area: name; margin: 0; align-self: end; font-size: 13.5px; font-weight: 600; letter-spacing: -0.006em; }
+.fx-blurb { grid-area: blurb; margin: 0; align-self: start; font-size: 12px; line-height: 1.4; color: var(--label-2); text-wrap: pretty; }
+.fx-card .switch { grid-area: switch; transform: scale(0.85); transform-origin: right center; }
+
+.fx-card[data-on="false"] .fx-icon-btn img { filter: grayscale(1) opacity(0.55); }
+.fx-card[data-on="false"] .fx-name { color: var(--label-2); }
 
 /* ---------- day picker ---------------------------------------------------- */
 
@@ -92,29 +253,23 @@ body { min-height: 100vh; }
     color var(--t-tint) var(--ease-out),
     transform var(--t-press) var(--ease-out);
 }
-
 @media (hover: hover) and (pointer: fine) {
   .day:hover { background: var(--fill-hover); color: var(--label); }
 }
 .day:active { transform: scale(0.95); }
-/* Selected days are tinted, not filled. Five solid blue pills in one row out-
-   shout the single primary action, and the accent has to stay scarce to keep
-   meaning "this is the button you want". */
-.day[aria-pressed="true"] {
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-weight: 600;
-}
+.day[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
 
 /* ---------- schedule rows ------------------------------------------------- */
 
+.item-icon { flex: none; display: block; border-radius: 8px; }
+
 .item-time {
   flex: none;
-  min-width: 72px;
+  min-width: 70px;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;   /* times must not shift the row */
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -125,22 +280,34 @@ body { min-height: 100vh; }
 .item-actions { display: flex; align-items: center; gap: var(--s1); margin-inline-start: auto; }
 .item-actions .switch { margin-inline-start: var(--s2); }
 
-/* A paused schedule reads back one level, without disappearing. */
 .row[data-enabled="false"] .item-time,
 .row[data-enabled="false"] .item-effect { color: var(--label-3); }
+.row[data-enabled="false"] .item-icon { filter: grayscale(1) opacity(0.6); }
 
-/* Enter springs down into place; leave is a plain fade, because a removal
-   should get out of the way rather than perform. */
 @keyframes item-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; translate: 0 -6px; }
+  to   { opacity: 1; translate: 0 0; }
 }
 .row.is-new { animation: item-in var(--spring-ms) var(--spring) both; }
-.row.is-leaving {
-  opacity: 0;
-  transition: opacity var(--t-fade) var(--ease-out);
-  pointer-events: none;
+.row.is-leaving { opacity: 0; transition: opacity var(--t-fade) var(--ease-out); pointer-events: none; }
+
+/* ---------- empty state --------------------------------------------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--s3);
+  padding: var(--s5) var(--s4);
+  border-radius: var(--r-group);
+  border: 1.5px dashed var(--separator);
+  color: var(--label-3);
+  text-align: center;
 }
+.empty svg { margin-bottom: var(--s2); }
+.empty p { margin: 0; }
+.empty .t-label { color: var(--label); }
 
 /* ---------- toast --------------------------------------------------------- */
 
@@ -149,7 +316,7 @@ body { min-height: 100vh; }
   left: 50%;
   bottom: var(--s5);
   z-index: 60;
-  max-width: min(320px, calc(100vw - 32px));
+  max-width: min(340px, calc(100vw - 32px));
   padding: 10px var(--s4);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -160,33 +327,37 @@ body { min-height: 100vh; }
   text-align: center;
   pointer-events: none;
   opacity: 0;
-  /* Enters and leaves along the same path: up from below, back down. */
   translate: -50% 14px;
-  transition:
-    opacity var(--t-fade) var(--ease-out),
-    translate var(--t-fade) var(--ease-out);
+  transition: opacity var(--t-fade) var(--ease-out), translate var(--t-fade) var(--ease-out);
 }
-
 .toast.is-open {
   opacity: 1;
   translate: -50% 0;
   transition-duration: var(--spring-ms), var(--spring-ms);
   transition-timing-function: var(--spring), var(--spring);
 }
-
 .toast[data-tone="error"] { color: var(--danger); }
 
 /* ---------- colophon ------------------------------------------------------ */
 
-.colophon { padding-inline: var(--s4); }
+.colophon {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-inline: var(--s1);
+}
+.colophon img { border-radius: 4px; opacity: 0.85; }
 
 /* ---------- narrow -------------------------------------------------------- */
 
-@media (max-width: 520px) {
+@media (max-width: 600px) {
   .page { padding: var(--s6) var(--s3) var(--s7); }
+  .fx-grid { grid-template-columns: 1fr; }
   .row { flex-wrap: wrap; }
   .row .seg { width: 100%; margin-top: var(--s2); }
   .row .seg-opt { flex: 1; }
+  .tabs { width: auto; }
+  .tab { flex: 1; text-align: center; padding-inline: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="spiderman-bg" x1="14" y1="0" x2="50" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F2485E"/><stop offset="1" stop-color="#9B1230"/></linearGradient>
+<linearGradient id="spiderman-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="spiderman-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.28"/></filter>
+<clipPath id="spiderman-clip"><rect width="64" height="64" rx="15"/></clipPath>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#spiderman-bg)"/>
+<g clip-path="url(#spiderman-clip)"><path d="M3 3L32.71 7.18M3 3L28.98 18M3 3L21.47 26.64M3 3L11.27 31.84M14.88 4.67Q12.08 6.13 13.39 9Q10.25 9.3 10.39 12.46Q7.36 11.55 6.31 14.54M23.8 5.92Q18.88 8.47 21.19 13.5Q15.68 14.02 15.93 19.55Q10.63 17.97 8.79 23.19" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/></g>
+<rect width="64" height="64" rx="15" fill="url(#spiderman-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#spiderman-sh)">
+<path d="M40 0V12" stroke="#fff" stroke-width="2" stroke-opacity=".9"/>
+<path d="M40 11.5L38.5 22M40 11.5L47 15.5L44 22" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<path d="M37.5 21H43.5L45.5 29.5H35.5Z" fill="#fff" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M36 29L29 30L25.5 36M45 29L52 30L55.5 36" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="40.5" cy="40.5" r="9" fill="#C8102F" stroke="#fff" stroke-width="2.5"/>
+<path d="M39 43.2C35.6 43.8 33.4 41.8 33.2 37.6C36.6 38.2 38.8 40.2 39 43.2ZM42 43.2C45.4 43.8 47.6 41.8 47.8 37.6C44.4 38.2 42.2 40.2 42 43.2Z" fill="#fff" stroke="#fff" stroke-width="1" stroke-linejoin="round"/>
+</g>
+</svg>

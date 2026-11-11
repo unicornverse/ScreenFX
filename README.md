@@ -1,12 +1,12 @@
 # ScreenFX
 
-A "click when bored" Chrome extension. Hit the toolbar icon, pick one of eight effects, and
+A "click when bored" Chrome extension. Hit the toolbar icon, pick one of twelve effects, and
 a full-screen animation plays over whatever tab you're on, then cleans itself up. You
 choose how long it lasts, and you can book one in advance so it ambushes you at 4pm on a
 Tuesday.
 
-Manifest V3. No build step, no dependencies, no remote assets — every effect is plain
-CSS, SVG and vanilla JS.
+Manifest V3. No build step, no runtime dependencies, no remote assets — every effect is
+plain CSS, SVG, canvas and vanilla JS.
 
 ## Install (load unpacked)
 
@@ -23,20 +23,26 @@ popup says so under the grid instead of failing silently.
 
 ## The effects
 
-| # | Effect | What happens |
-|---|--------|--------------|
+| Key | Effect | What happens |
+|-----|--------|--------------|
 | 1 | Prison bars | Steel bars slam down with overshoot, the screen takes an impact shake, bars lift back up |
-| 2 | Web slinger | A line anchors in the top-right corner and lowers a web-slinger smoothly down the page, where he hangs and sways before being drawn back up |
-| 3 | Web shooter | A gloved forearm reaches in from the bottom-right and tracks your pointer. Click anywhere and a line thwips out to a web that sticks |
-| 4 | Flood | Silt-laden water surges up from below, swallows the page whole, drifts debris across its surface, then drains away |
-| 5 | Underwater | The page goes under. Light shafts, caustics, rising bubbles and fish swimming past at three depths |
-| 6 | Glitch | Backdrop-filter slices tear through the real page, chromatic fringing, scanlines, inversion hits |
-| 7 | Confetti | Mixed shapes fall with independent sway and tumble |
-| 8 | Screen crack | A dropped phone: cracked cover glass over a broken display — liquid-crystal bleed, driver line bands, rainbow mura and backlight blowout |
+| 2 | Screen crack | A dropped phone: cracked cover glass over a broken display — liquid-crystal bleed, driver line bands, rainbow mura and backlight blowout |
+| 3 | Glitch | Backdrop-filter slices tear through the real page, chromatic fringing, scanlines, inversion hits |
+| 4 | Confetti | Two cannons fire from the bottom corners, then paper keeps raining from the top. Canvas, with drag, flip and flutter |
+| 5 | Fireworks | The page goes to night; peony, ring, willow and crackle shells, ending on a finale |
+| 6 | Bug invasion | Beetles and ladybirds crawl in with a real tripod gait. They bolt from the pointer; click one to squash it. The page stays usable |
+| 7 | Web slinger | A line anchors in the top-right corner and lowers a web-slinger down the page, where he sways before being hoisted off-screen |
+| 8 | Web shooter | A gloved forearm reaches in from the bottom-right and tracks your pointer. Click anywhere and a web sticks |
+| 9 | Underwater | The page goes under. Light shafts, caustics, rising bubbles and fish at three depths |
+| 0 | Deep freeze | Frost dendrites creep in from the edges (corners first) over a frosted blur while snow falls, then it thaws |
+| - | Thunderstorm | The sky closes in, wind-blown rain with splashes, forked lightning with a leader and return stroke |
+| = | Black hole | An event horizon with a photon ring and a beamed Keplerian accretion disk; streaks spiral in, then it collapses |
 
-Press **1–8** in the popup to play one without clicking. Every overlay has a dismiss
-button in the top-right whose ring counts the remaining time down, and **Esc** ends an
-effect early.
+**Surprise me** (or **R** in the popup, or the keyboard shortcut) plays a random effect.
+The settings page lets you switch effects out of that mix and preview any of them.
+
+Every overlay has a dismiss button in the top-right whose ring counts the remaining time
+down, and **Esc** ends an effect early.
 
 ## Time on screen
 
@@ -45,25 +51,22 @@ It is stored in `chrome.storage.sync`, so it follows your Chrome profile.
 
 Longer does not mean slower. Each effect plays its intro at natural speed, sits in a
 **hold** phase for the remaining budget, then plays its outro — a slam is a slam whether
-you asked for 3 seconds or 30. What the hold looks like is the effect's own business:
-the bars just stay down, the silhouette keeps swinging, the flood sits at high water, and
-confetti keeps being emitted rather than falling in slow motion.
+you asked for 3 seconds or 30. When intro + outro do not fit the budget, they compress
+proportionally (`ctx.fit`) instead of overrunning. **Every effect ends exactly on the chosen
+duration**, and the countdown ring drains over the effect's real reported length.
 
-Two deliberate exceptions:
+One deliberate exception in character, not in length: **Glitch caps its strobing at 3
+cycles (~4.7s)**, then settles into a non-strobing dead-signal wash for the rest. A
+30-second strobe is a photosensitivity hazard. Thunderstorm likewise keeps its sky flash
+well under full white, at most twice per strike, strikes ~1.8s+ apart.
 
-- **Glitch caps its strobing at 3 cycles (~4.7s)** no matter what you set, then settles
-  into a non-strobing dead-signal wash for the rest. A 30-second strobe is a
-  photosensitivity hazard, not a longer joke.
-- **Flood compresses** rather than overruns. Its surge and drain are ~2.6s together, which
-  does not fit the 3s setting, so both scale down to land inside the budget.
-
-Under `prefers-reduced-motion: reduce` the camera shakes are dropped, Glitch replaces its
-strobe with a single soft desaturating wash, the web slinger's rope is damped so it descends
-straight instead of swaying, the flood skips its spray, and the cracked panel stops flickering.
+Under `prefers-reduced-motion: reduce` camera shakes are dropped, Glitch becomes a soft
+wash, the web slinger's rope is damped, the cracked panel stops flickering, Thunderstorm
+loses its flash and flicker, and particle counts drop across the canvas effects.
 
 ## Where the effects get their behaviour
 
-Four of the eight are built on measured physics or on reference photography rather than on
+Several are built on measured physics or on reference photography rather than on
 hand-tuned keyframes, because the details that make something read as real are exactly the
 ones intuition gets wrong:
 
@@ -75,11 +78,6 @@ ones intuition gets wrong:
   his arms trail the sway and settle late. Constraint iterations are kept deliberately low —
   a stiff solver propagates an impulse down the whole chain in one frame, which is what
   makes a simulated rope look like a pole.
-- **Flood** is opaque on purpose. Flood water is silt-laden, so anything it covers is simply
-  gone until it leaves, and a heavy backdrop-filter under a silt-coloured body is the only
-  honest way to take the page away without touching the page. A surge rises fast and then
-  slows as it spreads, so the rise is strongly eased out; the surface runs two crests at
-  different periods against each other, because a single scrolling wave reads as a loop.
 - **Underwater** sells depth through parallax rather than through blue. Three layers: the far
   one small, pale, blurred and slow, the near one large, sharp and across the screen in a few
   seconds. Tail beat scales with fish size, which is most of what separates a shoal from a
@@ -135,10 +133,13 @@ content.js             the injected runtime: overlay lifecycle + EFFECTS registr
 theme.css              design system: OKLCH colour, spring easings, type roles,
                        and the shared primitives (grouped list, segmented control,
                        switch, buttons)
-popup.html/.css/.js    the toolbar popup: effect grid, duration, keyboard handling
-options.html/.css/.js  full-tab settings: defaults, theme, schedules
-icons/                 16/32/48/128px toolbar icons
-tools/make-icons.mjs   regenerates icons/ (node tools/make-icons.mjs)
+effects.js             the effect catalogue (ids, labels, blurbs, key order) shared by
+                       popup and settings
+popup.html/.css/.js    the toolbar popup: Surprise me, effect grid, duration, keys
+options.html/.css/.js  full-tab settings: defaults, theme, effect gallery, schedules
+icons/brand.svg        brand mark master; icon16/32/48/128.png are rendered from it
+icons/fx/<id>.svg      one app-icon style tile per effect, plus random.svg
+tools/make-icons.mjs   regenerates the PNGs (npm install && npm run icons)
 ```
 
 There is no `effects.css`: each effect emits its own CSS at runtime through the `css()`
@@ -195,26 +196,25 @@ The service worker keeps no state in variables — Chrome tears it down after ~3
 every handler reads `chrome.storage` fresh and every listener is registered synchronously
 at the top level.
 
-Effects that need to stay legible on both light and dark pages (Web Drop, Screen Crack)
+Effects that need to stay legible on both light and dark pages (Web slinger, Web shooter, Screen crack)
 sample the page's background luminance and pick their line colour from it, backed by a
 halo in the opposite tone.
 
-## Adding a ninth effect
+## Adding an effect
 
 1. In `content.js`, write the effect:
 
 ```js
 function myEffect(stage, css, ctx) {
-  const INTRO = 400, OUTRO = 400;
-  const HOLD = ctx.hold(INTRO, OUTRO, 300);   // or ctx.fit() — see below
-  const total = INTRO + HOLD + OUTRO;
+  const f = ctx.fit(400, 400, 300);           // {intro, outro, hold, k}
+  const total = f.intro + f.hold + f.outro;   // always === ctx.duration
 
   css(`${R} .sfx-thing{position:absolute;inset:0;background:rgba(220,242,75,.2);}`);
   const thing = div('sfx-thing');
-  breathe(thing, total, INTRO, OUTRO);        // fade in at the start, out at the end
+  breathe(thing, total, f.intro, f.outro);    // fade in at the start, out at the end
   stage.appendChild(thing);
 
-  return total;                               // the overlay tears down after this
+  return total;                               // the ring drains over this; teardown after
 }
 ```
 
@@ -225,30 +225,29 @@ function myEffect(stage, css, ctx) {
    |---|---|
    | `ctx.duration` | what the user asked for, in ms |
    | `ctx.reduced` | true under `prefers-reduced-motion` |
-   | `ctx.hold(intro, outro, min)` | ms to sit still between intro and outro |
-   | `ctx.fit(intro, outro, min)` | same, but returns compressed `{intro, outro, hold}` when your intro + outro cannot fit the shortest setting |
+   | `ctx.fit(intro, outro, min)` | `{intro, outro, hold, k}` that sum to exactly `duration`; `k` < 1 when intro/outro had to compress |
+   | `ctx.hold(intro, outro, min)` | just the `hold` from `fit()` |
+
+   Helpers in scope: `canvasLayer(stage)` (DPR-aware full-viewport 2D canvas),
+   `loop(step)` (rAF tied to the overlay's lifetime), `later(fn, ms)`,
+   `listen(target, type, fn)` (host-page listeners removed on teardown), `envelope()`.
 
    Prefix every selector with `${R}`, animate only `transform` / `opacity` / `filter`, and
    keep `linear` for genuinely constant motion only.
 
-2. Register it:
+2. Register it in the `EFFECTS` object in `content.js` and bump `RUNTIME`.
 
-```js
-const EFFECTS = { prisonBars, spiderman: webSlinger, webShooter, waterfall: flood,
-                  underwater, glitch, confetti, crack, myEffect };
-```
-
-3. In `popup.js`, append one entry to the `EFFECTS` array with a matching `id`, a `label`,
-   a short `sub`, and a 26×26 `currentColor` SVG glyph. The grid, the numbering, the
-   keyboard shortcut and the hover choreography hooks all follow from that.
-
-4. In `options.js`, add the same id to `EFFECT_LABELS` so it can be scheduled.
+3. Add `{ id, label, blurb }` to `SFX_EFFECTS` in `effects.js`, and a 64×64 icon at
+   `icons/fx/<id>.svg` in the same style as the others. Popup grid, keys, settings
+   gallery and schedule picker all follow from that.
 
 ## Regenerating the icons
 
 ```
-node tools/make-icons.mjs
+npm install
+npm run icons
 ```
 
-The icons are drawn procedurally (accent-blue tile, white fractured bolt) and written
-with a small hand-rolled PNG encoder, so the repo carries no binary source assets.
+`tools/make-icons.mjs` rasterizes `icons/brand.svg` with resvg (a dev-only dependency;
+the extension itself loads nothing from `node_modules`). 16 and 32px use a simplified
+mark with heavier strokes so it stays crisp in the toolbar.

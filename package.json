@@ -1,0 +1,12 @@
+{
+  "name": "screenfx",
+  "private": true,
+  "version": "2.0.0",
+  "description": "ScreenFX Chrome extension. Dev tooling only; the extension itself has no runtime dependencies.",
+  "scripts": {
+    "icons": "node tools/make-icons.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

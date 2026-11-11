@@ -6,12 +6,11 @@
  * NEWER build replaces the old one (see RUNTIME below). Callers then just call
  * window.__screenFX.play(name, opts).
  *
- * ADDING A 9TH EFFECT
+ * ADDING AN EFFECT
  *   1. write   function myEffect(stage, css, ctx) { ...; return totalMs; }
  *   2. register it in the EFFECTS object near the bottom
- *   3. add one matching card to EFFECTS in popup.js
- *   4. add one label to EFFECT_LABELS in options.js
- *   5. bump RUNTIME, or open tabs keep the build that has no such effect
+ *   3. add one entry to effects.js (label, blurb) and an icon at icons/fx/<id>.svg
+ *   4. bump RUNTIME, or open tabs keep the build that has no such effect
  *
  * Effect contract
  *   stage — an empty, full-viewport, pointer-events:none div you own entirely
@@ -44,7 +43,7 @@
      open tab would otherwise win forever: re-injecting is a no-op, so any
      newly added effect silently does nothing until that tab is reloaded. The
      version check turns "reload every tab" into "the newest build wins". */
-  const RUNTIME = 2;
+  const RUNTIME = 3;
   const prev = window.__screenFX;
   if (prev) {
     if (prev.version === RUNTIME) return;      // same build, nothing to do
@@ -88,9 +87,40 @@
 
   /* ---------- overlay lifecycle ------------------------------------------- */
   let timers = [];
+  let cleanups = [];
   let onKey = null;
   let session = 0;                   // bumped on teardown; kills in-flight rAF loops
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
+
+  /* A listener on the host page (window, document) that must not outlive the
+     overlay. Everything registered here is removed by destroy(). */
+  const listen = (target, type, fn, opts) => {
+    target.addEventListener(type, fn, opts);
+    cleanups.push(() => target.removeEventListener(type, fn, opts));
+  };
+
+  /* A full-viewport 2D canvas at device resolution (capped at 2x — past that
+     the fill rate costs more than the sharpness is worth on a 4K panel). */
+  const canvasLayer = (stage, cls) => {
+    const W = window.innerWidth, H = window.innerHeight;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cv = el('canvas', cls || 'sfx-cv');
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    cv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;display:block;';
+    const g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stage.appendChild(cv);
+    return { cv, g, W, H, dpr };
+  };
+
+  /* 0..1 fade envelope for canvas work: ramps up over inMs, down over the
+     last outMs of total. */
+  const envelope = (t, total, inMs, outMs) =>
+    clamp(Math.min(t / Math.max(1, inMs), (total - t) / Math.max(1, outMs)), 0, 1);
+
+  const easeOut3 = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+  const easeIn2 = (t) => clamp(t, 0, 1) * clamp(t, 0, 1);
 
   /* A per-frame loop tied to the overlay's lifetime. step(dt, elapsed) runs with
      dt clamped so a backgrounded tab does not resume with a 4-second timestep
@@ -113,6 +143,8 @@
     session++;
     timers.forEach(clearTimeout);
     timers = [];
+    cleanups.forEach((fn) => { try { fn(); } catch (err) { /* page already gone */ } });
+    cleanups = [];
     if (onKey) { window.removeEventListener('keydown', onKey, true); onKey = null; }
     const old = document.getElementById(ROOT_ID);
     if (old) old.remove();           // takes the scoped <style> with it
@@ -153,7 +185,7 @@ ${R} .sfx-ring-fg{stroke:rgba(255,255,255,.92);stroke-width:2;stroke-dasharray:$
 @keyframes sfx-fade-out{from{opacity:1}to{opacity:0}}
 `;
 
-  function mount(duration) {
+  function mount() {
     destroy();
     const root = el('div');
     root.id = ROOT_ID;
@@ -176,9 +208,6 @@ ${R} .sfx-ring-fg{stroke:rgba(255,255,255,.92);stroke-width:2;stroke-dasharray:$
       <circle class="sfx-ring-bg" cx="17" cy="17" r="${RING_R}"/>
       <circle class="sfx-ring-fg" cx="17" cy="17" r="${RING_R}"/>
     </svg>`);
-    // progress is constant motion — linear is correct here, a curve would lie
-    ring.querySelector('.sfx-ring-fg').style.animation =
-      `sfx-ring-drain ${duration}ms linear forwards`;
     const x = el('span', 'sfx-x');
     x.textContent = '×';
     btn.append(ring, x);
@@ -187,7 +216,13 @@ ${R} .sfx-ring-fg{stroke:rgba(255,255,255,.92);stroke-width:2;stroke-dasharray:$
 
     (document.body || document.documentElement).appendChild(root);
     later(() => btn.classList.add('sfx-in'), 420);
-    return { root, stage, css };
+    // The ring is started by play() once the effect has reported its real
+    // length, so the countdown always matches what is actually on screen.
+    const startRing = (ms) => {
+      // progress is constant motion — linear is correct here, a curve would lie
+      ring.querySelector('.sfx-ring-fg').style.animation = `sfx-ring-drain ${ms}ms linear forwards`;
+    };
+    return { root, stage, css, startRing };
   }
 
   /* Shake the stage (not the root — the root must stay pinned to the viewport). */
@@ -226,12 +261,14 @@ ${R} .sfx-ring-fg{stroke:rgba(255,255,255,.92);stroke-width:2;stroke-dasharray:$
    * ====================================================================== */
   function prisonBars(stage, css, ctx) {
     const count = clamp(Math.round(window.innerWidth / 118), 5, 14);
-    const DROP = 620, STEP = 34, LIFT = 540;
-    const INTRO = (count - 1) * STEP + DROP;
-    const OUTRO = (count - 1) * STEP + LIFT;
-    const HOLD = ctx.hold(INTRO, OUTRO, 600);
-    const liftAt = INTRO + HOLD;
-    const total = liftAt + OUTRO + 120;
+    // Natural timings, compressed together if the budget is tight so the
+    // bars are fully up again exactly when the countdown ring runs out.
+    const N_DROP = 620, N_STEP = 34, N_LIFT = 540;
+    const f = ctx.fit((count - 1) * N_STEP + N_DROP, (count - 1) * N_STEP + N_LIFT, 600);
+    const DROP = N_DROP * f.k, STEP = N_STEP * f.k, LIFT = N_LIFT * f.k;
+    const INTRO = f.intro, OUTRO = f.outro;
+    const liftAt = INTRO + f.hold;
+    const total = liftAt + OUTRO;
 
     css(`
 ${R} .sfx-cell{position:absolute;inset:0;opacity:0;
@@ -273,11 +310,11 @@ ${R} .sfx-rail-b{bottom:0;transform:translate3d(0,110%,0);}
     const rt = div('sfx-rail sfx-rail-t');
     rt.style.animation =
       `sfx-rail-t-in 440ms cubic-bezier(.24,1.2,.4,1) 60ms forwards,` +
-      `sfx-rail-t-out 420ms cubic-bezier(.6,0,.78,.36) ${liftAt + 140}ms forwards`;
+      `sfx-rail-t-out ${(420 * f.k).toFixed(0)}ms cubic-bezier(.6,0,.78,.36) ${(liftAt + 140 * f.k).toFixed(0)}ms forwards`;
     const rb = div('sfx-rail sfx-rail-b');
     rb.style.animation =
       `sfx-rail-b-in 440ms cubic-bezier(.24,1.2,.4,1) 120ms forwards,` +
-      `sfx-rail-b-out 420ms cubic-bezier(.6,0,.78,.36) ${liftAt + 140}ms forwards`;
+      `sfx-rail-b-out ${(420 * f.k).toFixed(0)}ms cubic-bezier(.6,0,.78,.36) ${(liftAt + 140 * f.k).toFixed(0)}ms forwards`;
     stage.append(rt, rb);
 
     shake(stage, INTRO - 190, 560);   // lands as the last bars hit
@@ -466,10 +503,10 @@ ${R} .sfx-figure{filter:drop-shadow(0 0 5px rgba(0,0,0,.28)) drop-shadow(0 2px 3
     const ay = -4;
     const L = Math.round(clamp(H * 0.46, 210, 460));
 
-    const DROP = 1250, RETRACT = 1050;
-    const HOLD = ctx.hold(DROP, RETRACT, 1100);
-    const RETRACT_AT = DROP + HOLD;
-    const total = RETRACT_AT + RETRACT + 160;
+    const fw = ctx.fit(1250, 1050, 900);
+    const DROP = fw.intro, RETRACT = fw.outro;
+    const RETRACT_AT = DROP + fw.hold;
+    const total = RETRACT_AT + RETRACT;
 
     const S = clamp((H * 0.305) / 110, 1.2, 2.9);
     const { silk, halo } = silkTones();
@@ -497,6 +534,9 @@ ${R} .sfx-figure{filter:drop-shadow(0 0 5px rgba(0,0,0,.28)) drop-shadow(0 2px 3
       return 22 + (L - 22) * (1 - easeInOut(clamp((t - RETRACT_AT) / RETRACT, 0, 1)));
     };
 
+    // The pin rides up during the back half of the retract, hoisting him clear
+    // of the top edge — otherwise the overlay ends with him still hanging.
+    let pinY = ay;
     let acc = 0;
     function step(seg) {
       for (let i = 1; i < N; i++) {
@@ -525,7 +565,7 @@ ${R} .sfx-figure{filter:drop-shadow(0 0 5px rgba(0,0,0,.28)) drop-shadow(0 2px 3
           mid.x += ((a.x + c.x) / 2 - mid.x) * 0.22;
           mid.y += ((a.y + c.y) / 2 - mid.y) * 0.22;
         }
-        node[0].x = ax; node[0].y = ay;          // re-pin every iteration
+        node[0].x = ax; node[0].y = pinY;        // re-pin every iteration
       }
     }
 
@@ -593,6 +633,8 @@ ${R} .sfx-anchor{stroke:${silk};stroke-width:1.5;stroke-linecap:round;fill:none;
       if (t > total) return false;
       acc = Math.min(acc + dt / 1000, 0.1);
       const seg = restLen(t) / (N - 1);
+      const up = clamp((t - RETRACT_AT - RETRACT * 0.35) / (RETRACT * 0.65), 0, 1);
+      pinY = ay - easeIn2(up) * (112 * S + 60);
       while (acc >= DT) { step(seg); acc -= DT; }
 
       silkEl.setAttribute('d', ribbon(3.4, 2.0));
@@ -741,7 +783,7 @@ ${R} .sfx-hint span{display:inline-block;padding:7px 14px;border-radius:999px;
     hint.appendChild(hs);
     hint.style.animation =
       `sfx-fade-in 420ms cubic-bezier(0.22,1,0.36,1) 900ms both,` +
-      `sfx-fade-out 420ms cubic-bezier(0.22,1,0.36,1) 3200ms forwards`;
+      `sfx-fade-out 420ms cubic-bezier(0.22,1,0.36,1) ${Math.min(3200, total - FADE - 420)}ms forwards`;
     stage.appendChild(hint);
 
     loop((dt, t) => {
@@ -770,191 +812,11 @@ ${R} .sfx-hint span{display:inline-block;padding:7px 14px;border-radius:999px;
   }
 
   /* ========================================================================
-   * 3. FLOOD — muddy water surges up from below, swallows the page whole, and
-   *    drains away.
-   *
-   *    The point of this one is that everything goes. Flood water is not a
-   *    rinse and it is not clear: it is opaque with silt, so anything it
-   *    covers is simply gone until it leaves. That is carried by a heavy
-   *    backdrop-filter under a silt-coloured body, which is the only honest
-   *    way to take the page away without touching the page.
-   *
-   *    A real surge rises fast and then slows as it spreads, so the rise is
-   *    strongly eased out rather than linear. The surface gets two crests
-   *    scrolling against each other at different rates — a single scrolling
-   *    wave reads as a loop, two never repeat at the same moment. Debris rides
-   *    the surface because floating junk is what makes water read as a flood
-   *    rather than as a filling tank.
-   * ====================================================================== */
-  function flood(stage, css, ctx) {
-    const W = window.innerWidth, H = window.innerHeight;
-    const LEVEL = 6;                                   // final waterline, % of H
-    const NAT_RISE = 1500, NAT_DRAIN = 1100;
-    const f = ctx.fit(NAT_RISE, NAT_DRAIN, 700);
-    const RISE = f.intro, DRAIN = f.outro;
-    const DRAIN_AT = RISE + f.hold;
-    const total = DRAIN_AT + DRAIN;
-
-    // A wave path that tiles seamlessly across 1200 units.
-    const crest = (period, amp, h) => {
-      let d = `M0 ${amp + 2}`;
-      for (let x = 0; x < 1200; x += period) {
-        d += ` q ${period / 4} ${-amp} ${period / 2} 0 q ${period / 4} ${amp} ${period / 2} 0`;
-      }
-      return d + ` L1200 ${h} L0 ${h} Z`;
-    };
-
-    css(`
-${R} .sfx-fl{position:absolute;left:0;top:0;width:100%;height:132%;
- transform:translate3d(0,100%,0);
- animation:sfx-fl-rise ${RISE}ms cubic-bezier(.06,.74,.26,1) forwards,
-           sfx-fl-drain ${DRAIN}ms cubic-bezier(.5,0,.78,.4) ${DRAIN_AT}ms forwards;}
-${R} .sfx-fl-swell{position:absolute;inset:0;
- animation:sfx-fl-swell 3400ms cubic-bezier(.45,0,.55,1) infinite alternate;}
-
-/* The body. Silt makes flood water opaque, so this is what removes the page. */
-${R} .sfx-fl-body{position:absolute;left:0;right:0;top:0;bottom:0;
- background:linear-gradient(180deg,
-   rgba(104,88,52,.88) 0%,rgba(84,70,42,.93) 14%,
-   rgba(54,46,30,.94) 48%,rgba(28,25,18,.97) 100%);
- -webkit-backdrop-filter:blur(13px) saturate(.3) brightness(.55) contrast(1.15);
- backdrop-filter:blur(13px) saturate(.3) brightness(.55) contrast(1.15);}
-/* Silt churning through the body at two speeds. */
-${R} .sfx-fl-churn{position:absolute;left:-30%;right:-30%;top:-10%;bottom:-10%;opacity:.5;
- background:
-  radial-gradient(38% 26% at 22% 30%,rgba(174,148,86,.32),transparent 70%),
-  radial-gradient(30% 22% at 68% 52%,rgba(46,38,24,.52),transparent 72%),
-  radial-gradient(42% 30% at 84% 22%,rgba(158,134,80,.24),transparent 74%),
-  radial-gradient(34% 26% at 44% 76%,rgba(32,27,18,.52),transparent 70%);
- animation:sfx-fl-churn 7200ms cubic-bezier(.45,0,.55,1) infinite alternate;}
-${R} .sfx-fl-churn2{animation-duration:11000ms;animation-direction:alternate-reverse;opacity:.34;}
-
-/* Surface. Two crests at different periods and speeds, plus a foam line. */
-${R} .sfx-fl-crest{position:absolute;left:0;width:200%;display:block;}
-${R} .sfx-fl-foam{fill:none;stroke:rgba(240,242,226,.62);stroke-width:3.2;
- stroke-linecap:round;stroke-dasharray:34 22 9 31 18 44;filter:blur(.7px);}
-${R} .sfx-fl-foam2{fill:none;stroke:rgba(248,250,238,.34);stroke-width:7;
- stroke-linecap:round;stroke-dasharray:14 46 26 62;filter:blur(3px);}
-/* Sky bouncing off the surface, brightest right at the waterline. */
-${R} .sfx-fl-sheen{position:absolute;left:0;right:0;top:0;height:54px;
- background:linear-gradient(180deg,rgba(226,234,212,.3) 0%,rgba(180,196,158,.12) 42%,rgba(0,0,0,0) 100%);
- mix-blend-mode:screen;}
-
-${R} .sfx-deb{position:absolute;transform-origin:50% 50%;}
-${R} .sfx-deb > i{display:block;width:100%;height:100%;
- background:var(--c);border-radius:var(--r);
- box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 2px 5px rgba(0,0,0,.4);}
-${R} .sfx-spray{position:absolute;border-radius:50%;opacity:0;
- background:rgba(226,230,206,.9);box-shadow:0 0 4px rgba(210,216,184,.6);}
-
-@keyframes sfx-fl-rise{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,${LEVEL}%,0)}}
-@keyframes sfx-fl-drain{from{transform:translate3d(0,${LEVEL}%,0)}to{transform:translate3d(0,104%,0)}}
-@keyframes sfx-fl-swell{from{transform:translate3d(0,5px,0)}to{transform:translate3d(0,-7px,0)}}
-@keyframes sfx-fl-churn{from{transform:translate3d(-4%,2%,0) scale(1)}to{transform:translate3d(5%,-3%,0) scale(1.1)}}
-@keyframes sfx-fl-crest{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
-`);
-
-    const fl = div('sfx-fl');
-    const swell = div('sfx-fl-swell');
-
-    const body = div('sfx-fl-body');
-    body.append(div('sfx-fl-churn'), div('sfx-fl-churn sfx-fl-churn2'));
-    swell.appendChild(body);
-
-    // Two crests: the back one deeper and slower, the front one sharper.
-    // Open (unclosed) copy of the same wave, for the foam to be stroked along.
-    const crestLine = (period, amp) => {
-      let d = `M0 ${amp + 2}`;
-      for (let x = 0; x < 1200; x += period) {
-        d += ` q ${period / 4} ${-amp} ${period / 2} 0 q ${period / 4} ${amp} ${period / 2} 0`;
-      }
-      return d;
-    };
-
-    [{ p: 340, a: 27, h: 150, sp: 9000, dir: 'normal', c: 'rgba(74,62,38,.9)', top: -58, foam: 0 },
-     { p: 220, a: 18, h: 130, sp: 5600, dir: 'reverse', c: 'rgba(104,88,52,.88)', top: -36, foam: 1 }
-    ].forEach((cfg) => {
-      const s = svgFrom(`<svg xmlns="http://www.w3.org/2000/svg" class="sfx-fl-crest" viewBox="0 0 1200 ${cfg.h}" preserveAspectRatio="none" height="${cfg.h}">
-        <path d="${crest(cfg.p, cfg.a, cfg.h)}" fill="${cfg.c}"/>
-        ${cfg.foam ? `<path class="sfx-fl-foam2" d="${crestLine(cfg.p, cfg.a)}"/>
-        <path class="sfx-fl-foam" d="${crestLine(cfg.p, cfg.a)}"/>` : ''}
-      </svg>`);
-      s.style.top = cfg.top + 'px';
-      s.style.animation = `sfx-fl-crest ${cfg.sp}ms linear infinite ${cfg.dir}`;
-      swell.appendChild(s);
-    });
-    swell.appendChild(div('sfx-fl-sheen'));
-
-    /* ---- debris riding the surface --------------------------------------- */
-    // Silhouettes, because nothing keeps its colour in silt-laden water.
-    const kinds = [
-      { w: 46, h: 8, c: 'rgba(54,40,26,.95)', r: '2px' },      // plank
-      { w: 30, h: 6, c: 'rgba(44,34,22,.95)', r: '2px' },      // splinter
-      { w: 15, h: 12, c: 'rgba(30,42,26,.9)', r: '60% 20% 60% 20%' },  // leaf
-      { w: 11, h: 11, c: 'rgba(38,44,38,.9)', r: '50%' },      // junk
-      { w: 22, h: 15, c: 'rgba(48,44,32,.92)', r: '3px' }      // carton
-    ];
-    let kf = '';
-    const count = clamp(Math.round(W / 58), 12, 34);
-    const bag = [];
-    for (let i = 0; i < count; i++) {
-      const k = pick(kinds), sc = rand(0.7, 1.7);
-      const drift = rand(-120, 120), spin = rand(-16, 16);
-      kf += `@keyframes sfx-deb-${i}{` +
-        `0%{transform:translate3d(0,0,0) rotate(0deg)}` +
-        `50%{transform:translate3d(${(drift / 2).toFixed(0)}px,${rand(-7, 7).toFixed(1)}px,0) rotate(${(spin / 2).toFixed(1)}deg)}` +
-        `100%{transform:translate3d(${drift.toFixed(0)}px,0,0) rotate(${spin.toFixed(1)}deg)}}`;
-      const d = div('sfx-deb',
-        `left:${rand(-4, 100).toFixed(1)}%;top:${rand(-10, 56).toFixed(0)}px;` +
-        `width:${(k.w * sc).toFixed(0)}px;height:${(k.h * sc).toFixed(0)}px;` +
-        `animation:sfx-deb-${i} ${rand(5200, 9000).toFixed(0)}ms cubic-bezier(.45,0,.55,1) ` +
-        `${rand(-4000, 0).toFixed(0)}ms infinite alternate;`);
-      const inner = el('i', '', `--c:${k.c};--r:${k.r};`);
-      d.appendChild(inner);
-      bag.push(d);
-    }
-    swell.append(...bag);
-
-    fl.appendChild(swell);
-    stage.appendChild(fl);
-
-    /* ---- spray thrown off the surge --------------------------------------- */
-    if (!ctx.reduced) {
-      const N = clamp(Math.round(W / 30), 16, 46);
-      const sp = [];
-      for (let i = 0; i < N; i++) {
-        const life = rand(420, 900);
-        const ang = rand(-0.85, 0.85);
-        const speed = rand(320, 820);
-        const vx = Math.sin(ang) * speed, vy = -Math.cos(ang) * speed;
-        const g = 1500;
-        let k = '';
-        for (let s = 0; s <= 4; s++) {
-          const t = (s / 4) * (life / 1000);
-          k += `${s * 25}%{transform:translate3d(${(vx * t).toFixed(1)}px,${(vy * t + 0.5 * g * t * t).toFixed(1)}px,0);` +
-               `opacity:${(1 - Math.pow(s / 4, 2)).toFixed(2)}}`;
-        }
-        kf += `@keyframes sfx-spr-${i}{${k}}`;
-        const d = rand(2, 6);
-        sp.push(div('sfx-spray',
-          `left:${rand(0, W).toFixed(0)}px;top:${rand(-16, 26).toFixed(0)}px;` +
-          `width:${d.toFixed(1)}px;height:${(d * 1.2).toFixed(1)}px;` +
-          `animation:sfx-spr-${i} ${life.toFixed(0)}ms linear ${(RISE * rand(0.14, 0.8)).toFixed(0)}ms forwards;`));
-      }
-      swell.append(...sp);
-    }
-
-    css(kf);                                   // one reparse, not sixty
-    shake(stage, RISE * 0.12, 620);            // the surge hitting
-    return total;
-  }
-
-  /* ========================================================================
    * 3b. UNDERWATER — the whole page is submerged. Light shafts come down from
    *     a surface somewhere above, caustics crawl over everything, bubbles
    *     rise, and fish swim past at three different depths.
    *
-   *     Unlike the flood, this water is clear: the page stays readable, just
+   *     This water is clear: the page stays readable, just
    *     blue, dimmer and slightly soft. Depth is carried by parallax — the far
    *     layer is small, pale, blurred and slow, the near layer is large, sharp
    *     and quick, and crosses the screen in a few seconds. That difference is
@@ -1150,7 +1012,10 @@ ${R} .sfx-snow{position:absolute;border-radius:50%;background:rgba(226,246,255,.
    *    strobe is a photosensitivity hazard, not a longer joke.
    * ====================================================================== */
   function glitch(stage, css, ctx) {
-    const CYCLE = 1560;
+    // Whole cycles only, and never more than fit: at 3s that is one slightly
+    // longer cycle rather than two that overrun the countdown.
+    const cyclesFit = clamp(Math.floor(ctx.duration / 1560), 1, 3);
+    const CYCLE = cyclesFit * 1560 > ctx.duration ? Math.floor(ctx.duration / cyclesFit) : 1560;
 
     if (ctx.reduced) {
       // No strobe, no jitter — one soft desaturating wash for the full duration.
@@ -1164,7 +1029,7 @@ ${R} .sfx-snow{position:absolute;border-radius:50%;background:rgba(226,246,255,.
       return total;
     }
 
-    const cycles = clamp(Math.round(ctx.duration / CYCLE), 1, 3);
+    const cycles = cyclesFit;
     const strobe = cycles * CYCLE;
     const residual = Math.max(0, ctx.duration - strobe);
     const total = strobe + residual;
@@ -1238,62 +1103,100 @@ ${R} .sfx-resid{position:absolute;inset:0;opacity:0;
   }
 
   /* ========================================================================
-   * 5. CONFETTI — four shapes, three nested transforms per piece
-   *    (fall / sway / spin) so nothing ever moves in lockstep. A longer
-   *    duration widens the emission window rather than slowing the fall.
+   * 5. CONFETTI — two cannons fire from the bottom corners, then a steady
+   *    rain from the top carries the hold.
+   *
+   *    Canvas, not DOM: a few hundred pieces as elements is a few hundred
+   *    compositor layers. Paper confetti is drag-dominated, so it is modelled
+   *    as linear drag against gravity: the cannon shot decelerates hard,
+   *    hangs at its apex, then settles to a slow terminal fall. Each piece
+   *    flips about its own axis (cos of a phase squashes it, and the back
+   *    face is shaded) and flutters sideways, which is what reads as paper
+   *    rather than as falling pixels.
    * ====================================================================== */
   function confetti(stage, css, ctx) {
-    const COLORS = ['#E9F551', '#FF4D6D', '#3FD8E8', '#FFA23A', '#A66BFF', '#FFF3DC'];
-    const FALL_MAX = 4300, FADE = 680;
     const total = ctx.duration;
-    const emit = Math.max(400, total - FALL_MAX);            // release window
-    const count = clamp(Math.round(150 * (total / 5300)), 80, 420);
+    const OUT = 800;
+    const { cv, g, W, H } = canvasLayer(stage);
+    const COLORS = ['#FFD23F', '#FF4D6D', '#3FD8E8', '#FF9F1C', '#9B5DE5', '#2EC4B6', '#F15BB5', '#FFFFFF'];
+    const GRAV = 620, DRAG = 1.7;               // terminal fall ~365 px/s
+    const P = [];
+    const MAX = ctx.reduced ? 220 : 650;
 
-    css(`
-${R} .sfx-c{position:absolute;top:-6%;will-change:transform;}
-${R} .sfx-cs{display:block;}
-${R} .sfx-ci{display:block;box-shadow:0 0 0 .5px rgba(0,0,0,.14);}
-${R} .sfx-sq{border-radius:1px;}
-${R} .sfx-strip{border-radius:2px;}
-${R} .sfx-dot{border-radius:50%;}
-${R} .sfx-tri{clip-path:polygon(50% 0,100% 100%,0 100%);box-shadow:none;}
-@keyframes sfx-fall{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,${window.innerHeight + 90}px,0)}}
-@keyframes sfx-csway{from{transform:translate3d(-26px,0,0)}to{transform:translate3d(26px,0,0)}}
-`);
+    const add = (x, y, vx, vy) => {
+      if (P.length >= MAX) return;
+      const shape = pick(['rect', 'rect', 'rect', 'strip', 'circle', 'tri']);
+      const w = shape === 'strip' ? rand(3.5, 5) : rand(7, 11);
+      P.push({
+        x, y, vx, vy, w,
+        h: shape === 'strip' ? rand(14, 22) : shape === 'circle' ? w : rand(9, 14),
+        shape, color: pick(COLORS),
+        rot: rand(0, Math.PI * 2), vr: rand(-7, 7),
+        flip: rand(0, Math.PI * 2), vf: rand(5, 13),
+        sway: rand(0, Math.PI * 2), swayA: rand(18, 46)
+      });
+    };
 
-    // Six tumble axes, reused across pieces so the generated CSS stays small.
-    for (let a = 0; a < 6; a++) {
-      const ax = rand(-1, 1).toFixed(2), ay = rand(0.3, 1).toFixed(2), az = rand(-1, 1).toFixed(2);
-      css(`@keyframes sfx-spin-${a}{from{transform:rotate3d(${ax},${ay},${az},0deg)}to{transform:rotate3d(${ax},${ay},${az},360deg)}}`);
-    }
+    // Two cannons. Scaled to the viewport so the shot reaches ~2/3 of the way up.
+    const v0 = clamp(H * 1.75, 900, 2100);
+    const cannon = (fromLeft) => {
+      const n = ctx.reduced ? 70 : 170;
+      for (let i = 0; i < n; i++) {
+        const a = (fromLeft ? -1 : 1) * rand(0.18, 0.62);     // angle off vertical
+        const sp = v0 * rand(0.55, 1.05);
+        add(fromLeft ? rand(-10, 30) : W - rand(-10, 30), H + rand(0, 20),
+            -Math.sin(a) * sp, -Math.cos(a) * sp);
+      }
+    };
+    cannon(true);
+    later(() => cannon(false), 90);
 
-    for (let i = 0; i < count; i++) {
-      const color = pick(COLORS);
-      const shape = pick(['sq', 'sq', 'strip', 'dot', 'tri', 'strip']);
-      const dur = rand(2600, FALL_MAX);
-      const delay = rand(0, emit);
+    // Rain from the top for as long as new pieces still have time to fall in.
+    const rainEnd = total - OUT - 900;
+    let rainAcc = 0;
 
-      // gravity: a touch of acceleration up front, then terminal velocity
-      const outer = div('sfx-c',
-        `left:${rand(-4, 104)}%;animation:sfx-fall ${dur}ms cubic-bezier(.3,.16,.52,.92) ${delay}ms forwards;`);
+    breathe(cv, total, 1, OUT);
 
-      const sway = el('span', 'sfx-cs',
-        `transform:translate3d(${rand(-26, 26)}px,0,0);` +
-        `animation:sfx-csway ${rand(1100, 2200)}ms cubic-bezier(.45,0,.55,1) ${delay}ms infinite alternate;`);
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
 
-      const w = shape === 'strip' ? rand(3, 4.5) : shape === 'dot' ? rand(6, 9) : rand(7, 11);
-      const h = shape === 'strip' ? rand(13, 20) : shape === 'dot' ? w : rand(8, 13);
-      const inner = el('span', 'sfx-ci sfx-' + shape,
-        `width:${w}px;height:${h}px;background:${color};` +
-        `animation:sfx-spin-${i % 6} ${rand(520, 1500)}ms linear ${delay}ms infinite;`);
+      if (t > 700 && t < rainEnd) {
+        rainAcc += s * (ctx.reduced ? 18 : 55);
+        while (rainAcc >= 1) { add(rand(-20, W + 20), -20, rand(-30, 30), rand(40, 120)); rainAcc--; }
+      }
 
-      sway.appendChild(inner);
-      outer.appendChild(sway);
-      stage.appendChild(outer);
-    }
+      g.clearRect(0, 0, W, H);
+      const k = Math.exp(-DRAG * s);
+      for (let i = P.length - 1; i >= 0; i--) {
+        const p = P[i];
+        p.vy += GRAV * s;
+        p.vx *= k; p.vy *= k;
+        p.sway += s * 3.1;
+        p.x += (p.vx + Math.cos(p.sway) * p.swayA) * s;
+        p.y += p.vy * s;
+        p.rot += p.vr * s;
+        p.flip += p.vf * s;
+        if (p.y > H + 40) { P.splice(i, 1); continue; }
 
-    stage.style.animation =
-      `sfx-fade-out ${FADE}ms cubic-bezier(0.22,1,0.36,1) ${total - FADE}ms forwards`;
+        const c = Math.cos(p.flip);
+        g.save();
+        g.translate(p.x, p.y);
+        g.rotate(p.rot);
+        g.scale(1, Math.max(0.08, Math.abs(c)));
+        g.beginPath();
+        if (p.shape === 'circle') g.arc(0, 0, p.w / 2, 0, Math.PI * 2);
+        else if (p.shape === 'tri') {
+          g.moveTo(0, -p.h / 2); g.lineTo(p.w / 2, p.h / 2); g.lineTo(-p.w / 2, p.h / 2); g.closePath();
+        } else g.rect(-p.w / 2, -p.h / 2, p.w, p.h);
+        g.fillStyle = p.color;
+        g.fill();
+        // The back face catches less light.
+        if (c < 0) { g.fillStyle = 'rgba(0,0,0,.22)'; g.fill(); }
+        g.restore();
+      }
+    });
+
     return total;
   }
 
@@ -1690,45 +1593,827 @@ ${R} .sfx-mura{position:absolute;border-radius:50%;mix-blend-mode:overlay;opacit
   }
 
   /* ========================================================================
+   * 7. FIREWORKS — the page goes to night and a show goes up over it.
+   *
+   *    Rockets climb on an eased-out path (they decelerate toward the apex,
+   *    which is what makes the burst feel like it happens at a peak rather
+   *    than at an arbitrary point), then break into one of four shells:
+   *    peony, ring, gold willow, or crackle. Sparks carry drag and gravity,
+   *    so a burst opens fast, hangs, and droops. Trails come from fading the
+   *    previous frame with destination-out — the canvas stays transparent
+   *    over the page, which the usual "paint black at low alpha" trick can't.
+   *
+   *    Launches are scheduled backwards from the end: the last shell goes up
+   *    early enough to finish burning before the outro, and a finale cluster
+   *    lands right before it, so every duration ends on a high.
+   * ====================================================================== */
+  function fireworks(stage, css, ctx) {
+    const total = ctx.duration;
+    const IN = 600, OUT = 900;
+    css(`
+${R} .sfx-night{position:absolute;inset:0;
+ background:radial-gradient(130% 100% at 50% 110%,rgba(36,20,70,.5),rgba(5,7,22,.74) 70%);
+ -webkit-backdrop-filter:brightness(.55) saturate(.6);backdrop-filter:brightness(.55) saturate(.6);}
+`);
+    const night = div('sfx-night');
+    breathe(night, total, IN, OUT);
+    stage.appendChild(night);
+
+    const { cv, g, W, H } = canvasLayer(stage);
+    breathe(cv, total, 1, OUT);
+    const PAL = [
+      ['#FFE08A', '#FFAA33'], ['#FF7AA2', '#FF2E63'], ['#8AF3FF', '#3FA9FF'],
+      ['#C9A2FF', '#7B5CFF'], ['#A8FF9A', '#2EDC7A'], ['#FFFFFF', '#FFD9A0']
+    ];
+    const KINDS = ['peony', 'peony', 'ring', 'willow', 'crackle'];
+    const GRAV = 150;
+    const rockets = [], sparks = [];
+    const MAX_SPARKS = ctx.reduced ? 700 : 2200;
+
+    // Schedule: steady launches, then a finale burst that ends before the outro.
+    const BURN = 2000, FLIGHT = 950;
+    const last = Math.max(380, total - OUT - BURN - FLIGHT * 0.5);
+    const plan = [];
+    for (let t = 120; t < last - 700; t += rand(ctx.reduced ? 700 : 300, ctx.reduced ? 1200 : 680)) plan.push(t);
+    const finale = ctx.reduced ? 3 : clamp(Math.round(total / 1600), 4, 10);
+    for (let i = 0; i < finale; i++) plan.push(last - rand(0, 650));
+
+    plan.forEach((at) => later(() => {
+      const x0 = rand(0.12, 0.88) * W;
+      rockets.push({
+        x0, y0: H + 8, x1: x0 + rand(-0.08, 0.08) * W, y1: rand(0.1, 0.42) * H,
+        t: 0, T: rand(FLIGHT * 0.8, FLIGHT * 1.15), pal: pick(PAL), kind: pick(KINDS), px: x0, py: H + 8
+      });
+    }, at));
+
+    const burst = (x, y, kind, pal) => {
+      const n = kind === 'ring' ? 64 : kind === 'willow' ? 90 : rint(80, 120);
+      const base = kind === 'willow' ? rand(150, 210) : rand(220, 330);
+      for (let i = 0; i < n && sparks.length < MAX_SPARKS; i++) {
+        const a = (i / n) * Math.PI * 2 + rand(-0.04, 0.04);
+        // sqrt spread fills the sphere's projection; a ring keeps one speed
+        const sp = kind === 'ring' ? base : base * Math.sqrt(rand(0.15, 1));
+        sparks.push({
+          x, y, px: x, py: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          age: 0, life: kind === 'willow' ? rand(2000, 2600) : rand(1200, 1800),
+          c: Math.random() < 0.7 ? pal[0] : pal[1],
+          w: kind === 'willow' ? 1.4 : rand(1.6, 2.4),
+          drag: kind === 'willow' ? 1.5 : 2.1, crackle: kind === 'crackle', split: false
+        });
+      }
+      // the bright moment of the break, left to fade with the trails
+      const glow = g.createRadialGradient(x, y, 0, x, y, 90);
+      glow.addColorStop(0, 'rgba(255,240,220,.3)');
+      glow.addColorStop(1, 'rgba(255,240,220,0)');
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = glow;
+      g.fillRect(x - 90, y - 90, 180, 180);
+    };
+
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
+
+      // fade last frame: this is what leaves the trails
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = `rgba(0,0,0,${(1 - Math.pow(0.8, dt / 16.67)).toFixed(3)})`;
+      g.fillRect(0, 0, W, H);
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
+
+      for (let i = rockets.length - 1; i >= 0; i--) {
+        const r = rockets[i];
+        r.t += dt;
+        const p = easeOut3(r.t / r.T);
+        const x = r.x0 + (r.x1 - r.x0) * p, y = r.y0 + (r.y1 - r.y0) * p;
+        g.strokeStyle = 'rgba(255,220,170,.9)';
+        g.lineWidth = 2;
+        g.beginPath(); g.moveTo(r.px, r.py); g.lineTo(x, y); g.stroke();
+        r.px = x; r.py = y;
+        if (r.t >= r.T) { burst(x, y, r.kind, r.pal); rockets.splice(i, 1); }
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const p = sparks[i];
+        p.age += dt;
+        if (p.age >= p.life) { sparks.splice(i, 1); continue; }
+        const k = Math.exp(-p.drag * s);
+        p.vx *= k; p.vy = p.vy * k + GRAV * s;
+        p.px = p.x; p.py = p.y;
+        p.x += p.vx * s; p.y += p.vy * s;
+        const u = p.age / p.life;
+        let a = Math.pow(1 - u, 1.6);
+        if (!ctx.reduced && u > 0.55) a *= 0.55 + 0.45 * Math.random();     // twinkle as it burns out
+        if (p.crackle && !p.split && u > 0.62) {
+          p.split = true;
+          for (let j = 0; j < 2 && sparks.length < MAX_SPARKS; j++) {
+            sparks.push({ x: p.x, y: p.y, px: p.x, py: p.y, vx: rand(-60, 60), vy: rand(-60, 60),
+              age: 0, life: rand(220, 380), c: '#FFFFFF', w: 1.6, drag: 3, crackle: false, split: true });
+          }
+        }
+        g.globalAlpha = a;
+        g.strokeStyle = p.c;
+        g.lineWidth = p.w;
+        g.beginPath(); g.moveTo(p.px, p.py); g.lineTo(p.x, p.y); g.stroke();
+      }
+      g.globalAlpha = 1;
+    });
+
+    return total;
+  }
+
+  /* ========================================================================
+   * 8. BUG INVASION — beetles and ladybirds crawl in from the edges and
+   *    wander the page. Get the pointer near one and it bolts; click one and
+   *    it's squashed. When time is up the survivors scurry off-screen.
+   *
+   *    The page stays fully usable: nothing here blocks the pointer. A click
+   *    is only swallowed when it actually lands on a bug.
+   *
+   *    The movement is what sells it. Insects do not glide: they walk with
+   *    an alternating tripod gait (front and back legs on one side swing with
+   *    the middle leg on the other), stop dead for a beat, twitch, set off in
+   *    a new direction, and the gait rate tracks their speed.
+   * ====================================================================== */
+  function bugs(stage, css, ctx) {
+    const total = ctx.duration;
+    const OUT = clamp(total * 0.2, 700, 1300);
+    const { g, W, H } = canvasLayer(stage);
+    const count = Math.round(clamp((W * H) / 60000, 10, 30) * (ctx.reduced ? 0.5 : 1));
+
+    const BEETLE = [['#3B2618', '#1A100A'], ['#26301C', '#12180C'], ['#2B2234', '#140F1C']];
+    const list = [];
+    for (let i = 0; i < count; i++) {
+      const edge = rint(0, 3);
+      const x = edge === 1 ? W + 30 : edge === 3 ? -30 : rand(0, W);
+      const y = edge === 0 ? -30 : edge === 2 ? H + 30 : rand(0, H);
+      const lady = Math.random() < 0.22;
+      list.push({
+        x, y, a: Math.atan2(H / 2 - y + rand(-H * 0.3, H * 0.3), W / 2 - x + rand(-W * 0.3, W * 0.3)),
+        size: lady ? rand(20, 26) : rand(24, 36), lady, tone: pick(BEETLE),
+        v: 0, cruise: rand(60, 120) * (ctx.reduced ? 0.6 : 1), turn: 0,
+        phase: rand(0, 6.28), pause: 0, wakeAt: rand(0, Math.min(1500, total * 0.3)),
+        dead: false, spots: lady ? [[0.05, -0.12], [0.05, 0.12], [-0.17, -0.1], [-0.17, 0.1], [-0.06, 0]] : null
+      });
+    }
+    const splats = [];
+    let mx = -1e4, my = -1e4;
+
+    listen(window, 'pointermove', (e) => { mx = e.clientX; my = e.clientY; }, { passive: true, capture: true });
+    listen(window, 'pointerdown', (e) => {
+      let hit = null;
+      for (const b of list) {
+        if (b.dead) continue;
+        if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.size * 0.75) { hit = b; break; }
+      }
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hit.dead = true;
+      splats.push({ x: hit.x, y: hit.y, r: hit.size * 0.55, lady: hit.lady, a: rand(0, 6.28),
+        lobes: Array.from({ length: 9 }, () => rand(0.65, 1.35)) });
+      // everyone close by startles
+      for (const b of list) {
+        if (!b.dead && Math.hypot(b.x - hit.x, b.y - hit.y) < 240) { b.pause = 0; b.flee = 900; }
+      }
+    }, { capture: true });
+
+    const drawBug = (b) => {
+      const s = b.size;
+      g.save();
+      g.translate(b.x, b.y);
+      g.rotate(b.a);
+      // contact shadow
+      g.fillStyle = 'rgba(0,0,0,.22)';
+      g.beginPath(); g.ellipse(-s * 0.04 + 2, 3, s * 0.48, s * 0.3, 0, 0, Math.PI * 2); g.fill();
+
+      // legs: alternating tripod
+      g.strokeStyle = b.lady ? '#120B0A' : b.tone[1];
+      g.lineWidth = Math.max(1.4, s * 0.055);
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      [0.16, 0.02, -0.14].forEach((lx, li) => {
+        [-1, 1].forEach((side) => {
+          const group = (li + (side > 0 ? 1 : 0)) % 2;
+          const sw = Math.sin(b.phase + group * Math.PI) * 0.42;
+          const base = (li - 1) * 0.55;               // front legs reach forward, back legs trail
+          const ang = side * (Math.PI / 2) - side * (base + sw);
+          const kx = lx * s + Math.cos(ang) * s * 0.34, ky = side * s * 0.1 + Math.sin(ang) * s * 0.34;
+          const fx = kx + Math.cos(ang - side * 0.5 + base * 0.4) * s * 0.3;
+          const fy = ky + Math.sin(ang - side * 0.5 + base * 0.4) * s * 0.3;
+          g.beginPath(); g.moveTo(lx * s, side * s * 0.1); g.lineTo(kx, ky); g.lineTo(fx, fy); g.stroke();
+        });
+      });
+
+      // antennae
+      const tw = Math.sin(b.phase * 0.7) * 0.12;
+      g.lineWidth = Math.max(1, s * 0.035);
+      [-1, 1].forEach((side) => {
+        g.beginPath();
+        g.moveTo(s * 0.42, side * s * 0.05);
+        g.quadraticCurveTo(s * 0.62, side * s * (0.12 + tw), s * 0.7, side * s * (0.26 + tw));
+        g.stroke();
+      });
+
+      // head + pronotum
+      g.fillStyle = b.lady ? '#141012' : b.tone[1];
+      g.beginPath(); g.ellipse(s * 0.38, 0, s * 0.09, s * 0.1, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(s * 0.24, 0, s * 0.12, s * 0.17, 0, 0, Math.PI * 2); g.fill();
+      if (b.lady) {
+        g.fillStyle = '#F4EFE6';
+        g.beginPath(); g.ellipse(s * 0.25, -s * 0.09, s * 0.04, s * 0.03, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.ellipse(s * 0.25, s * 0.09, s * 0.04, s * 0.03, 0, 0, Math.PI * 2); g.fill();
+      }
+
+      // elytra
+      const grd = g.createLinearGradient(0, -s * 0.3, 0, s * 0.3);
+      if (b.lady) { grd.addColorStop(0, '#F0453A'); grd.addColorStop(1, '#B4140F'); }
+      else { grd.addColorStop(0, b.tone[0]); grd.addColorStop(1, b.tone[1]); }
+      g.fillStyle = grd;
+      g.beginPath(); g.ellipse(-s * 0.08, 0, s * 0.34, s * 0.26, 0, 0, Math.PI * 2); g.fill();
+      if (b.spots) {
+        g.fillStyle = '#120B0A';
+        b.spots.forEach(([px, py]) => { g.beginPath(); g.arc(px * s, py * s, s * 0.055, 0, Math.PI * 2); g.fill(); });
+      }
+      // seam + sheen
+      g.strokeStyle = 'rgba(0,0,0,.45)';
+      g.lineWidth = 1;
+      g.beginPath(); g.moveTo(s * 0.14, 0); g.lineTo(-s * 0.4, 0); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,.2)';
+      g.beginPath(); g.ellipse(-s * 0.02, -s * 0.12, s * 0.17, s * 0.05, -0.15, 0, Math.PI * 2); g.fill();
+      g.restore();
+    };
+
+    const drawSplat = (sp, alpha) => {
+      g.save();
+      g.globalAlpha = alpha;
+      g.translate(sp.x, sp.y);
+      g.rotate(sp.a);
+      g.fillStyle = sp.lady ? 'rgba(170,30,24,.75)' : 'rgba(132,148,40,.72)';
+      g.beginPath();
+      sp.lobes.forEach((k, i) => {
+        const a = (i / sp.lobes.length) * Math.PI * 2, r = sp.r * k;
+        i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      });
+      g.closePath(); g.fill();
+      g.fillStyle = 'rgba(20,14,10,.85)';
+      for (let i = 0; i < 6; i++) {
+        const a = sp.lobes[i] * 4.1 + i, r = sp.r * 0.45 * sp.lobes[(i + 3) % 9];
+        g.beginPath(); g.arc(Math.cos(a) * r, Math.sin(a) * r, sp.r * 0.12 * sp.lobes[i], 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+    };
+
+    const wrap = (d) => { while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
+
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
+      const leaving = t > total - OUT;
+      g.clearRect(0, 0, W, H);
+
+      const fade = envelope(t, total, 1, OUT * 0.6);
+      splats.forEach((sp) => drawSplat(sp, fade));
+
+      for (const b of list) {
+        if (b.dead || t < b.wakeAt) continue;
+        let want = b.a;
+        let speed = b.cruise;
+
+        if (leaving) {
+          // head for the nearest edge, fast
+          const ex = b.x < W / 2 ? -80 : W + 80, ey = b.y < H / 2 ? -80 : H + 80;
+          want = Math.abs(ex - b.x) < Math.abs(ey - b.y) ? Math.atan2(0, ex - b.x) : Math.atan2(ey - b.y, 0);
+          speed *= 2.6; b.pause = 0;
+        } else {
+          const dp = Math.hypot(b.x - mx, b.y - my);
+          if (dp < 150 || b.flee > 0) {
+            if (dp < 150) want = Math.atan2(b.y - my, b.x - mx);
+            speed *= 2.8; b.pause = 0;
+            b.flee = Math.max(0, (b.flee || 0) - dt);
+          } else if (b.pause > 0) {
+            b.pause -= dt; speed = 0;
+          } else {
+            if (Math.random() < s * 0.45) b.pause = rand(250, 900);
+            if (Math.random() < s * 1.2) b.turn = rand(-2.2, 2.2);
+            want = b.a + b.turn * s * 2;
+            // stay on the page: steer back once near an edge
+            const m = 50;
+            if (b.x < m || b.x > W - m || b.y < m || b.y > H - m) {
+              want = Math.atan2(H / 2 - b.y, W / 2 - b.x);
+            }
+          }
+        }
+        b.a += wrap(want - b.a) * Math.min(1, s * 7);
+        b.v += (speed - b.v) * Math.min(1, s * 9);
+        b.x += Math.cos(b.a) * b.v * s;
+        b.y += Math.sin(b.a) * b.v * s;
+        b.phase += (b.v * s) / (b.size * 0.09) * 0.5 + (b.v < 5 ? Math.sin(t * 0.02) * 0.02 : 0);
+        drawBug(b);
+      }
+    });
+
+    return total;
+  }
+
+  /* ========================================================================
+   * 9. DEEP FREEZE — the screen ices over from the edges in, snow falls
+   *    through it, then it thaws.
+   *
+   *    Frost on glass grows as dendrites: a stem, then side branches at about
+   *    60 degrees, each a little shorter, branching again. That is drawn once
+   *    onto a canvas. What animates is a radial mask over both the crystals
+   *    and a frosted backdrop blur, so the ice visibly creeps inward and
+   *    corners — furthest from the centre, coldest on a real window — freeze
+   *    first and deepest.
+   * ====================================================================== */
+  function snowstorm(stage, css, ctx) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const f = ctx.fit(1900, 1300, 600);
+    const total = f.intro + f.hold + f.outro;
+    const THAW_AT = f.intro + f.hold;
+
+    css(`
+${R} .sfx-cold{position:absolute;inset:0;background:rgba(170,212,255,.12);
+ -webkit-backdrop-filter:saturate(.7) brightness(1.04) hue-rotate(-6deg);
+ backdrop-filter:saturate(.7) brightness(1.04) hue-rotate(-6deg);}
+${R} .sfx-frosted{position:absolute;inset:0;background:rgba(226,240,255,.2);
+ -webkit-backdrop-filter:blur(7px) brightness(1.08) saturate(.6);
+ backdrop-filter:blur(7px) brightness(1.08) saturate(.6);}
+`);
+    const cold = div('sfx-cold');
+    breathe(cold, total, 900, f.outro);
+    stage.appendChild(cold);
+
+    // The mask goes on each layer itself, never on a shared wrapper: a masked
+    // ancestor becomes the backdrop root and the blur would sample nothing.
+    const frosted = div('sfx-frosted');
+    stage.appendChild(frosted);
+    const crystals = canvasLayer(stage);
+
+    /* ---- grow the crystals, once --------------------------------------- */
+    const cg = crystals.g;
+    const minD = Math.min(W, H);
+    const segs = [];
+    const grow = (x, y, a, len, depth) => {
+      let px = x, py = y;
+      const steps = 4;
+      for (let i = 0; i < steps; i++) {
+        a += rand(-0.12, 0.12);
+        const l = len / steps;
+        const nx = px + Math.cos(a) * l, ny = py + Math.sin(a) * l;
+        segs.push([px, py, nx, ny, depth]);
+        if (depth < 3 && Math.random() < 0.55) {
+          const side = Math.random() < 0.5 ? -1 : 1;
+          grow(nx, ny, a + side * rand(0.9, 1.15), len * rand(0.32, 0.5), depth + 1);
+          if (Math.random() < 0.3) grow(nx, ny, a - side * rand(0.9, 1.15), len * rand(0.25, 0.4), depth + 1);
+        }
+        px = nx; py = ny;
+      }
+    };
+    const SEED = ctx.reduced ? 70 : 44;
+    const seedEdge = (x, y, inward, cornerBoost) => grow(x, y, inward + rand(-0.6, 0.6),
+      minD * rand(0.1, 0.22) * cornerBoost, 0);
+    const boost = (x, y) => 1 + 0.9 * Math.pow(Math.hypot(x - W / 2, y - H / 2) / Math.hypot(W / 2, H / 2), 4);
+    for (let x = rand(0, SEED); x < W; x += SEED * rand(0.7, 1.3)) {
+      seedEdge(x, -2, Math.PI / 2, boost(x, 0));
+      seedEdge(x, H + 2, -Math.PI / 2, boost(x, H));
+    }
+    for (let y = rand(0, SEED); y < H; y += SEED * rand(0.7, 1.3)) {
+      seedEdge(-2, y, 0, boost(0, y));
+      seedEdge(W + 2, y, Math.PI, boost(W, y));
+    }
+    cg.lineCap = 'round';
+    // A cool shadow under the white keeps the ice legible on a white page.
+    [[4.5, 'rgba(90,130,180,.16)'], [1.3, 'rgba(255,255,255,.82)']].forEach(([w, c]) => {
+      cg.strokeStyle = c;
+      for (let d = 0; d <= 3; d++) {
+        cg.lineWidth = w * (1 - d * 0.2);
+        cg.beginPath();
+        segs.forEach((sg) => { if (sg[4] === d) { cg.moveTo(sg[0], sg[1]); cg.lineTo(sg[2], sg[3]); } });
+        cg.stroke();
+      }
+    });
+
+    /* ---- snow ------------------------------------------------------------ */
+    const snow = canvasLayer(stage);
+    const sg = snow.g;
+    const flakes = [];
+    const N = Math.round(clamp((W * H) / 9000, 90, 260) * (ctx.reduced ? 0.4 : 1));
+    for (let i = 0; i < N; i++) {
+      const z = Math.random();                     // 0 far .. 1 near
+      flakes.push({ x: rand(0, W), y: rand(-H * 0.4, H), r: 0.8 + z * 3.4, v: 40 + z * 110,
+        ph: rand(0, 6.28), z, live: true });
+    }
+
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
+
+      // frost coverage 0..1
+      let cover;
+      if (t < f.intro) cover = easeOut3(t / f.intro);
+      else if (t < THAW_AT) cover = 1 + 0.06 * ((t - f.intro) / Math.max(1, f.hold));
+      else cover = 1.06 * (1 - easeIn2((t - THAW_AT) / f.outro));
+      const inner = 100 - 40 * cover;               // % of the farthest-corner radius
+      const m = `radial-gradient(farthest-corner at 50% 50%,transparent ${inner.toFixed(1)}%,#000 ${(inner + 22).toFixed(1)}%)`;
+      frosted.style.webkitMaskImage = m; frosted.style.maskImage = m;
+      crystals.cv.style.webkitMaskImage = m; crystals.cv.style.maskImage = m;
+
+      const stopping = t > THAW_AT;
+      const wind = Math.sin(t / 2300) * 38 + Math.sin(t / 830) * 12;
+      sg.clearRect(0, 0, W, H);
+      for (const p of flakes) {
+        if (!p.live) continue;
+        p.ph += s * (1 + p.z);
+        p.y += p.v * s;
+        p.x += (wind * (0.4 + p.z) + Math.sin(p.ph) * 14) * s;
+        if (p.y > H + 8) {
+          if (stopping) { p.live = false; continue; }
+          p.y = -8; p.x = rand(-40, W + 40);
+        }
+        if (p.x < -50) p.x += W + 100; else if (p.x > W + 50) p.x -= W + 100;
+        // a faint cool rim, so flakes still read over white
+        sg.globalAlpha = 0.35 + p.z * 0.55;
+        sg.fillStyle = 'rgba(70,104,150,.28)';
+        sg.beginPath(); sg.arc(p.x, p.y, p.r + 0.9, 0, Math.PI * 2); sg.fill();
+        sg.fillStyle = '#FFFFFF';
+        sg.beginPath(); sg.arc(p.x, p.y, p.r, 0, Math.PI * 2); sg.fill();
+      }
+      sg.globalAlpha = 1;
+    });
+    breathe(snow.cv, total, 500, f.outro);
+
+    return total;
+  }
+
+  /* ========================================================================
+   * 10. BLACK HOLE — a singularity opens in the middle of the page and
+   *     starts eating the light around it.
+   *
+   *     An event horizon (pure black), a thin photon ring hugging it, and a
+   *     tilted accretion disk of particles on Keplerian orbits — inner ones
+   *     whip round, outer ones crawl, angular speed ~ r^-1.5. The side of the
+   *     disk moving toward the viewer is brighter (relativistic beaming),
+   *     which is the single detail that makes it read as a black hole rather
+   *     than a donut. The far half of the disk is drawn before the horizon
+   *     and the near half after, so the hole sits inside the disk.
+   *
+   *     Around it the page is dimmed and blurred toward the centre, and
+   *     streaks spiral in from the edges. It ends by collapsing into a point
+   *     and throwing off one soft shockwave.
+   * ====================================================================== */
+  function blackhole(stage, css, ctx) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const f = ctx.fit(1400, 900, 600);
+    const total = f.intro + f.hold + f.outro;
+    const END_AT = f.intro + f.hold;
+    const cx = W / 2, cy = H / 2;
+    const RH = clamp(Math.min(W, H) * 0.085, 48, 110);
+    const TILT = 0.26, ROT = -0.2;
+
+    css(`
+${R} .sfx-bh-dim{position:absolute;inset:0;
+ background:radial-gradient(circle at 50% 50%,rgba(6,3,14,.6) 0,rgba(6,3,14,.42) ${(RH * 3).toFixed(0)}px,rgba(4,2,10,.28) 70%);}
+${R} .sfx-bh-lens{position:absolute;left:50%;top:50%;width:${(RH * 12).toFixed(0)}px;height:${(RH * 12).toFixed(0)}px;
+ margin:${(-RH * 6).toFixed(0)}px 0 0 ${(-RH * 6).toFixed(0)}px;border-radius:50%;
+ background:radial-gradient(closest-side,rgba(2,1,6,.92) 14%,rgba(8,4,20,.62) 30%,rgba(10,6,24,.26) 56%,rgba(10,6,24,0) 100%);
+ transform:scale(0);}
+${R} .sfx-bh-wave{position:absolute;left:50%;top:50%;width:${(RH * 2).toFixed(0)}px;height:${(RH * 2).toFixed(0)}px;
+ margin:${(-RH).toFixed(0)}px 0 0 ${(-RH).toFixed(0)}px;border-radius:50%;opacity:0;
+ box-shadow:0 0 0 2px rgba(255,226,190,.7),0 0 40px 8px rgba(255,180,110,.35);}
+@keyframes sfx-bh-wave{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(9)}}
+`);
+    const dim = div('sfx-bh-dim');
+    breathe(dim, total, f.intro * 0.8, f.outro);
+    const lens = div('sfx-bh-lens');
+    stage.append(dim, lens);
+    const { g } = canvasLayer(stage);
+    const wave = div('sfx-bh-wave');
+    stage.appendChild(wave);
+    if (!ctx.reduced) {
+      wave.style.animation = `sfx-bh-wave 900ms cubic-bezier(.16,.84,.3,1) ${(END_AT + f.outro * 0.45).toFixed(0)}ms forwards`;
+    }
+
+    // disk particles: r in horizon units, ω ∝ r^-1.5
+    const disk = [];
+    const ND = ctx.reduced ? 260 : 620;
+    for (let i = 0; i < ND; i++) {
+      const r = 1.45 + Math.pow(Math.random(), 1.6) * 2.9;
+      disk.push({ r, a: rand(0, Math.PI * 2), w: 2.4 * Math.pow(r, -1.5), len: rand(0.08, 0.26), wd: rand(0.8, 2.2) });
+    }
+    const streaks = [];
+
+    const heat = (r, beam) => {
+      // inner disk white-gold, outer deep orange; beaming brightens one side
+      const u = clamp((r - 1.45) / 2.9, 0, 1);
+      const R0 = 255, G0 = Math.round(236 - u * 130), B0 = Math.round(200 - u * 170);
+      return `rgba(${R0},${G0},${B0},${clamp((0.85 - u * 0.5) * beam, 0, 1).toFixed(3)})`;
+    };
+
+    const drawDisk = (scale, back, s) => {
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(ROT);
+      g.scale(1, TILT);
+      g.lineCap = 'round';
+      for (const p of disk) {
+        p.a += p.w * s * (ctx.reduced ? 0.5 : 1) * (back ? 1 : 0);
+        const sa = Math.sin(p.a);
+        if ((sa < 0) !== back) continue;           // far half is sin<0 (above, after the tilt)
+        const beam = 0.55 + 0.75 * Math.max(0, -Math.cos(p.a));   // approaching side brighter
+        g.strokeStyle = heat(p.r, beam);
+        g.lineWidth = p.wd;
+        g.beginPath();
+        g.arc(0, 0, p.r * RH * scale, p.a - p.len, p.a);
+        g.stroke();
+      }
+      g.restore();
+    };
+
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
+      // size: grows in, holds with a slow breath, collapses to a point
+      let sc;
+      if (t < f.intro) sc = easeOut3(t / f.intro);
+      else if (t < END_AT) sc = 1 + 0.03 * Math.sin((t - f.intro) / 700);
+      else sc = 1 - easeIn2((t - END_AT) / (f.outro * 0.5));
+      sc = Math.max(0, sc);
+      lens.style.transform = `scale(${sc.toFixed(3)})`;
+
+      g.clearRect(0, 0, W, H);
+      g.globalCompositeOperation = 'lighter';
+
+      // infall streaks
+      if (t < END_AT && Math.random() < s * (ctx.reduced ? 10 : 34)) {
+        const a = rand(0, Math.PI * 2), r = Math.hypot(W, H) * 0.55;
+        streaks.push({ a, r, w: rand(0.6, 1.6) });
+      }
+      for (let i = streaks.length - 1; i >= 0; i--) {
+        const k = streaks[i];
+        const pull = 9000 / Math.max(40, k.r);
+        const r0 = k.r, a0 = k.a;
+        k.r -= (80 + pull * 30) * s;
+        k.a += (60 / Math.max(30, k.r)) * s * 4;
+        if (k.r < RH * sc * 1.1) { streaks.splice(i, 1); continue; }
+        const alpha = clamp(1 - k.r / (Math.hypot(W, H) * 0.55), 0, 1) * 0.7;
+        g.strokeStyle = `rgba(200,220,255,${alpha.toFixed(3)})`;
+        g.lineWidth = k.w;
+        g.beginPath();
+        g.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
+        g.lineTo(cx + Math.cos(k.a) * k.r, cy + Math.sin(k.a) * k.r);
+        g.stroke();
+      }
+
+      if (sc > 0.01) {
+        drawDisk(sc, true, s);
+
+        // lensed image of the far disk, bent up over the top of the horizon
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(ROT);
+        const lg = g.createRadialGradient(0, 0, RH * sc * 0.9, 0, 0, RH * sc * 1.7);
+        lg.addColorStop(0, 'rgba(255,214,160,0)');
+        lg.addColorStop(0.35, 'rgba(255,200,140,.55)');
+        lg.addColorStop(1, 'rgba(255,150,80,0)');
+        g.strokeStyle = lg;
+        g.lineWidth = RH * sc * 0.36;
+        g.beginPath(); g.ellipse(0, 0, RH * sc * 1.32, RH * sc * 1.22, 0, Math.PI * 1.04, Math.PI * 1.96); g.stroke();
+        g.restore();
+
+        // horizon + photon ring
+        g.globalCompositeOperation = 'source-over';
+        g.fillStyle = '#000';
+        g.beginPath(); g.arc(cx, cy, RH * sc, 0, Math.PI * 2); g.fill();
+        g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = 'rgba(255,236,210,.85)';
+        g.lineWidth = 1.6;
+        g.beginPath(); g.arc(cx, cy, RH * sc * 1.04, 0, Math.PI * 2); g.stroke();
+
+        drawDisk(sc, false, s);
+      }
+      g.globalCompositeOperation = 'source-over';
+    });
+
+    shake(stage, END_AT + f.outro * 0.4, 420);
+    return total;
+  }
+
+  /* ========================================================================
+   * 11. THUNDERSTORM — the sky closes in over the page, rain sheets across
+   *     it, and lightning cracks down.
+   *
+   *     Bolts are midpoint-displaced polylines with a few forked branches,
+   *     drawn twice (a wide cool glow, then a hot white core), and they do
+   *     what real strokes do: a leader, a blink of dark, a return stroke,
+   *     then decay. The sky flash rides with them, but at well under full
+   *     white and never more than twice per strike, a strike at least ~1.8s
+   *     apart — comfortably inside the three-flashes-a-second limit. Under
+   *     reduced motion there is no flash and no flicker at all.
+   * ====================================================================== */
+  function thunderstorm(stage, css, ctx) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const total = ctx.duration;
+    const IN = 900, OUT = 900;
+
+    css(`
+${R} .sfx-sky{position:absolute;inset:0;
+ background:linear-gradient(180deg,rgba(14,18,28,.72) 0%,rgba(24,30,42,.5) 55%,rgba(30,36,48,.42) 100%);
+ -webkit-backdrop-filter:brightness(.62) saturate(.5) contrast(1.05);
+ backdrop-filter:brightness(.62) saturate(.5) contrast(1.05);}
+${R} .sfx-cloud{position:absolute;top:-18%;height:46%;border-radius:50%;
+ background:radial-gradient(closest-side,rgba(8,10,16,.82),rgba(8,10,16,0));filter:blur(18px);}
+${R} .sfx-skyflash{position:absolute;inset:0;background:rgb(214,224,255);opacity:0;mix-blend-mode:screen;}
+@keyframes sfx-drift{from{transform:translate3d(-6%,0,0)}to{transform:translate3d(6%,0,0)}}
+@keyframes sfx-rumble{0%,100%{transform:translate3d(0,0,0)}20%{transform:translate3d(-3px,1px,0)}40%{transform:translate3d(3px,-1px,0)}60%{transform:translate3d(-2px,1px,0)}80%{transform:translate3d(1px,0,0)}}
+`);
+    const sky = div('sfx-sky');
+    breathe(sky, total, IN, OUT);
+    stage.appendChild(sky);
+    for (let i = 0; i < 5; i++) {
+      const c = div('sfx-cloud',
+        `left:${(i * 22 - 14 + rand(-6, 6)).toFixed(0)}%;width:${rand(40, 60).toFixed(0)}%;`);
+      breathe(c, total, IN, OUT);
+      c.style.animation += `,sfx-drift ${rand(9000, 15000).toFixed(0)}ms cubic-bezier(.45,0,.55,1) ${rand(-8000, 0).toFixed(0)}ms infinite alternate`;
+      stage.appendChild(c);
+    }
+    const flash = div('sfx-skyflash');
+    stage.appendChild(flash);
+
+    const rain = canvasLayer(stage);
+    const bolt = canvasLayer(stage);
+    breathe(rain.cv, total, IN, OUT);
+    const rg = rain.g, bg = bolt.g;
+
+    const N = Math.round(clamp((W * H) / 7000, 120, 360) * (ctx.reduced ? 0.45 : 1));
+    const drops = [];
+    for (let i = 0; i < N; i++) {
+      const z = Math.random();
+      drops.push({ x: rand(-W * 0.2, W), y: rand(-H, H), z, v: 900 + z * 700, len: 12 + z * 20 });
+    }
+    const splash = [];
+
+    /* ---- lightning ------------------------------------------------------- */
+    const makeBolt = () => {
+      const x0 = rand(0.15, 0.85) * W, y1 = rand(0.5, 0.92) * H;
+      let pts = [[x0, -10], [x0 + rand(-0.15, 0.15) * W, y1]];
+      let off = W * 0.09;
+      for (let k = 0; k < 6; k++) {
+        const next = [pts[0]];
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1], b = pts[i];
+          next.push([(a[0] + b[0]) / 2 + rand(-off, off), (a[1] + b[1]) / 2 + rand(-off, off) * 0.25], b);
+        }
+        pts = next; off *= 0.55;
+      }
+      const forks = [];
+      for (let i = 0, m = rint(2, 4); i < m; i++) {
+        const at = rint(Math.floor(pts.length * 0.2), Math.floor(pts.length * 0.7));
+        let [x, y] = pts[at];
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const fp = [[x, y]];
+        for (let j = 0, n = rint(5, 10); j < n; j++) {
+          x += dir * rand(6, 22); y += rand(10, 26);
+          fp.push([x, y]);
+        }
+        forks.push(fp);
+      }
+      return { main: pts, forks };
+    };
+
+    const strikes = [];
+    const lastStrike = total - OUT - 500;
+    for (let t = IN + rand(200, 700); t < lastStrike; t += rand(1800, 3600)) strikes.push(t);
+    if (!strikes.length && lastStrike > 300) strikes.push(Math.max(300, lastStrike * 0.6));
+    let live = null;
+    strikes.forEach((at) => later(() => {
+      live = { b: makeBolt(), t0: performance.now() };
+      if (!ctx.reduced) {
+        flash.style.transition = 'none';
+        flash.style.opacity = '.32';
+        later(() => { flash.style.opacity = '0'; }, 60);
+        later(() => { flash.style.opacity = '.22'; }, 120);
+        later(() => {
+          flash.style.transition = 'opacity 420ms cubic-bezier(0.22,1,0.36,1)';
+          flash.style.opacity = '0';
+        }, 190);
+        later(() => { stage.style.animation = 'none'; void stage.offsetWidth;
+          stage.style.animation = 'sfx-rumble 520ms cubic-bezier(.36,.07,.19,.97) both'; }, 280);
+      }
+    }, at));
+
+    const strokePath = (pts, w, c) => {
+      bg.strokeStyle = c; bg.lineWidth = w;
+      bg.beginPath();
+      pts.forEach((p, i) => (i ? bg.lineTo(p[0], p[1]) : bg.moveTo(p[0], p[1])));
+      bg.stroke();
+    };
+
+    loop((dt, t) => {
+      if (t > total) return false;
+      const s = dt / 1000;
+      const wind = 0.16 + Math.sin(t / 1900) * 0.06;    // radians off vertical
+      const stopping = t > total - OUT;
+
+      rg.clearRect(0, 0, W, H);
+      rg.lineCap = 'round';
+      for (const d of drops) {
+        if (d.dead) continue;
+        d.y += d.v * s;
+        d.x += Math.sin(wind) * d.v * s;
+        if (d.y > H) {
+          if (!ctx.reduced && d.z > 0.55 && splash.length < 160) {
+            for (let j = 0; j < 2; j++) splash.push({ x: d.x, y: H - rand(0, 6), vx: rand(-90, 90), vy: rand(-220, -110), age: 0 });
+          }
+          if (stopping) { d.dead = true; continue; }
+          d.y = rand(-60, -10); d.x = rand(-W * 0.2, W);
+        }
+        rg.strokeStyle = `rgba(196,212,236,${(0.22 + d.z * 0.4).toFixed(2)})`;
+        rg.lineWidth = 0.8 + d.z * 0.9;
+        rg.beginPath();
+        rg.moveTo(d.x, d.y);
+        rg.lineTo(d.x - Math.sin(wind) * d.len, d.y - Math.cos(wind) * d.len);
+        rg.stroke();
+      }
+      rg.fillStyle = 'rgba(206,220,240,.55)';
+      for (let i = splash.length - 1; i >= 0; i--) {
+        const p = splash[i];
+        p.age += dt;
+        if (p.age > 320) { splash.splice(i, 1); continue; }
+        p.vy += 900 * s; p.x += p.vx * s; p.y += p.vy * s;
+        rg.fillRect(p.x, p.y, 1.6, 1.6);
+      }
+
+      bg.clearRect(0, 0, W, H);
+      if (live) {
+        const age = performance.now() - live.t0;
+        // leader, blink, return stroke, decay
+        let a = age < 70 ? 1 : age < 120 ? (ctx.reduced ? 0.8 : 0.08) : age < 200 ? 1 : 1 - (age - 200) / 420;
+        if (a <= 0) { live = null; }
+        else {
+          bg.lineCap = 'round'; bg.lineJoin = 'round';
+          bg.globalAlpha = a;
+          strokePath(live.b.main, 10, 'rgba(150,170,255,.22)');
+          live.b.forks.forEach((fp) => strokePath(fp, 5, 'rgba(150,170,255,.16)'));
+          strokePath(live.b.main, 2.4, 'rgba(255,255,255,.98)');
+          live.b.forks.forEach((fp) => strokePath(fp, 1.2, 'rgba(236,240,255,.85)'));
+          bg.globalAlpha = 1;
+        }
+      }
+    });
+
+    return total;
+  }
+
+  /* ========================================================================
    * Registry + public API
    * ====================================================================== */
-  const EFFECTS = { prisonBars, spiderman: webSlinger, webShooter, waterfall: flood, underwater, glitch, confetti, crack };
+  const EFFECTS = {
+    prisonBars, spiderman: webSlinger, webShooter, underwater, glitch, confetti, crack,
+    fireworks, bugs, snowstorm, blackhole, thunderstorm
+  };
   const NAMES = Object.keys(EFFECTS);
 
   /**
    * @param {string} name  effect id, or 'random'
-   * @param {{duration?: number}} [opts]  how long to stay on screen, in ms
+   * @param {{duration?: number, pool?: string[]}} [opts]
+   *        duration — how long to stay on screen, in ms
+   *        pool     — ids 'random' may choose from (defaults to all)
    * @returns {boolean} whether an effect started
    */
   function play(name, opts) {
-    const id = name === 'random' ? pick(NAMES) : name;
+    let id = name;
+    if (name === 'random') {
+      const pool = (opts && Array.isArray(opts.pool) ? opts.pool : NAMES).filter((n) => EFFECTS[n]);
+      id = pick(pool.length ? pool : NAMES);
+    }
     const fx = EFFECTS[id];
     if (!fx) return false;
 
     const duration = clamp(Number(opts && opts.duration) || DEFAULT_MS, MIN_MS, MAX_MS);
+
+    /* Timing contract: intro and outro play at their natural speed and the
+       hold absorbs the rest, so the total lands exactly on `duration`. When
+       the budget is too small for both at natural speed they compress
+       proportionally instead of overrunning — the user asked for N seconds,
+       not "N seconds, give or take". */
+    const fit = (intro, outro, min = 300) => {
+      if (intro + outro + min <= duration) {
+        return { intro, outro, hold: duration - intro - outro, k: 1 };
+      }
+      const k = Math.max(0.3, (duration - min) / (intro + outro));
+      const i = Math.round(intro * k);
+      const o = Math.round(outro * k);
+      return { intro: i, outro: o, hold: Math.max(0, duration - i - o), k };
+    };
     const ctx = {
       duration,
       reduced: prefersReduced(),
-      // Sit on screen for whatever is left once the intro and outro have each
-      // played at their natural speed.
-      hold: (intro, outro, min = 300) => Math.max(min, duration - intro - outro),
-
-      // Same idea, but honest when the budget is too small to hold the intro
-      // and outro at natural speed: compress them proportionally rather than
-      // overrunning the time the user asked for. Floor the squeeze at 0.45 —
-      // below that a rise stops reading as a rise.
-      fit: (intro, outro, min = 300) => {
-        if (intro + outro + min <= duration) {
-          return { intro, outro, hold: duration - intro - outro };
-        }
-        const k = Math.max(0.45, (duration - min) / (intro + outro));
-        const i = Math.round(intro * k);
-        const o = Math.round(outro * k);
-        return { intro: i, outro: o, hold: Math.max(0, duration - i - o) };
-      }
+      fit,
+      hold: (intro, outro, min = 300) => fit(intro, outro, min).hold
     };
 
-    const { stage, css } = mount(duration);    // mount() destroys any live overlay first
+    const { stage, css, startRing } = mount();  // mount() destroys any live overlay first
     let ms;
     try {
       ms = fx(stage, css, ctx) || duration;
@@ -1738,8 +2423,9 @@ ${R} .sfx-mura{position:absolute;border-radius:50%;mix-blend-mode:overlay;opacit
       return false;
     }
 
-    later(destroy, ms + 150);                  // the plan
-    later(destroy, duration + 2500);           // the backstop
+    startRing(ms);
+    later(destroy, ms + 120);                  // the plan
+    later(destroy, Math.max(ms, duration) + 2500);   // the backstop
     onKey = (e) => { if (e.key === 'Escape') destroy(); };
     window.addEventListener('keydown', onKey, true);
     return true;

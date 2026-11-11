@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="random-bg" x1="14" y1="0" x2="50" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B5CFF"/><stop offset="1" stop-color="#8A4DFF"/></linearGradient>
+<linearGradient id="random-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="random-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.28"/></filter>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#random-bg)"/>
+<rect width="64" height="64" rx="15" fill="url(#random-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#random-sh)">
+<g transform="translate(42 24) rotate(16)"><rect x="-9" y="-9" width="18" height="18" rx="4.5" fill="#E4DEFF"/><circle cx="-4" cy="-4" r="2" fill="#7A52FF"/><circle cx="4" cy="4" r="2" fill="#7A52FF"/></g>
+<g transform="translate(27 37) rotate(-12)"><rect x="-12" y="-12" width="24" height="24" rx="6" fill="#fff"/><g fill="#5B5CFF"><circle r="2.4"/><circle cx="-6" cy="-6" r="2.4"/><circle cx="6" cy="-6" r="2.4"/><circle cx="-6" cy="6" r="2.4"/><circle cx="6" cy="6" r="2.4"/></g></g>
+<path d="M17 10.5Q17.6 15.4 22.5 16Q17.6 16.6 17 21.5Q16.4 16.6 11.5 16Q16.4 15.4 17 10.5Z" fill="#FFE58A"/>
+<path d="M50 41Q50.4 44.6 54 45Q50.4 45.4 50 49Q49.6 45.4 46 45Q49.6 44.6 50 41Z" fill="#fff"/>
+</g>
+</svg>

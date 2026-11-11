@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="bugs-bg" x1="14" y1="0" x2="50" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#78B83A"/><stop offset="1" stop-color="#3E5A17"/></linearGradient>
+<linearGradient id="bugs-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="bugs-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.28"/></filter>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#bugs-bg)"/>
+<rect width="64" height="64" rx="15" fill="url(#bugs-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#bugs-sh)">
+<g transform="translate(48 17) rotate(35) scale(.5)" opacity=".65"><path d="M-6-7L-12-10L-13.5-15M6-7L12-10L13.5-15M-8.5 1H-16.5L-18-2.5M8.5 1H16.5L18-2.5M-7.5 8L-13 12.5V17M7.5 8L13 12.5V17" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M-2-15.5Q-4-20-7.5-21M2-15.5Q4-20 7.5-21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cy="-12.5" r="5" fill="#fff"/><ellipse cy="3" rx="10" ry="12.5" fill="#fff"/><path d="M-9-4.5Q0-9 9-4.5M0-6.5V15" fill="none" stroke="#4F7A1E" stroke-width="2" stroke-linecap="round"/><circle cx="-4.5" cy="2" r="2" fill="#4F7A1E"/><circle cx="4.5" cy="2" r="2" fill="#4F7A1E"/><circle cx="-4" cy="9" r="1.7" fill="#4F7A1E"/><circle cx="4" cy="9" r="1.7" fill="#4F7A1E"/></g>
+<g transform="translate(29 36) rotate(-18)"><path d="M-6-7L-12-10L-13.5-15M6-7L12-10L13.5-15M-8.5 1H-16.5L-18-2.5M8.5 1H16.5L18-2.5M-7.5 8L-13 12.5V17M7.5 8L13 12.5V17" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M-2-15.5Q-4-20-7.5-21M2-15.5Q4-20 7.5-21" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cy="-12.5" r="5" fill="#fff"/><ellipse cy="3" rx="10" ry="12.5" fill="#fff"/><path d="M-9-4.5Q0-9 9-4.5M0-6.5V15" fill="none" stroke="#5E8A22" stroke-width="2" stroke-linecap="round"/><circle cx="-4.5" cy="2" r="2" fill="#5E8A22"/><circle cx="4.5" cy="2" r="2" fill="#5E8A22"/><circle cx="-4" cy="9" r="1.7" fill="#5E8A22"/><circle cx="4" cy="9" r="1.7" fill="#5E8A22"/></g>
+</g>
+</svg>

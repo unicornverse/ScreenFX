@@ -7,24 +7,9 @@
  * truth, and a schedule synced from another device schedules itself.
  * ========================================================================== */
 
-const EFFECT_LABELS = {
-  random: 'Random effect',
-  prisonBars: 'Prison bars',
-  spiderman: 'Web slinger',
-  webShooter: 'Web shooter',
-  waterfall: 'Flood',
-  underwater: 'Underwater',
-  glitch: 'Glitch',
-  confetti: 'Confetti',
-  crack: 'Screen crack'
-};
+/* global SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, sfxIcon, sfxLabel */
 
-const DURATIONS = [
-  { ms: 3000,  label: '3s' },
-  { ms: 6000,  label: '6s' },
-  { ms: 12000, label: '12s' },
-  { ms: 30000, label: '30s' }
-];
+const DURATIONS = SFX_DURATIONS;
 
 const THEMES = [
   { id: 'auto',  label: 'Auto' },
@@ -39,11 +24,12 @@ const DAYS = [
 ];
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
-const DEFAULTS = { duration: 6000, theme: 'auto', lastEffect: null };
+const DEFAULTS = { duration: 6000, theme: 'auto', lastEffect: null, randomPool: null };
 
 const $ = (id) => document.getElementById(id);
 const listGroup = $('listGroup');
 const listFoot = $('listFoot');
+const emptyState = $('emptyState');
 const toastEl = $('toast');
 
 let settings = { ...DEFAULTS };
@@ -151,7 +137,7 @@ function dayLabel(days) {
  *  when the next effect actually fires, or that nothing is booked yet. */
 async function showNextRun() {
   if (!schedules.length) {
-    listFoot.textContent = 'No schedules yet. Add one below to have an effect play at a set time.';
+    listFoot.textContent = '';
     return;
   }
   try {
@@ -176,6 +162,7 @@ function timeLabel(hhmm) {
 function render({ newId } = {}) {
   listGroup.textContent = '';
   listGroup.hidden = schedules.length === 0;
+  emptyState.hidden = schedules.length > 0;
   showNextRun();
 
   schedules.forEach((s) => {
@@ -185,14 +172,15 @@ function render({ newId } = {}) {
     row.dataset.enabled = String(!!s.enabled);
 
     row.innerHTML = `
+      <img class="item-icon" src="${sfxIcon(SFX_EFFECTS.some((e) => e.id === s.effect) ? s.effect : 'random')}" width="30" height="30" alt="">
       <span class="item-time">${timeLabel(s.time)}</span>
       <span class="item-main">
-        <span class="item-effect">${EFFECT_LABELS[s.effect] || s.effect}</span>
+        <span class="item-effect">${sfxLabel(s.effect)}</span>
         <span class="item-days">${dayLabel(s.days)}</span>
       </span>
       <span class="item-actions">
         <button class="icon-btn" type="button" data-act="preview"
-                aria-label="Preview ${EFFECT_LABELS[s.effect] || s.effect}">
+                aria-label="Preview ${sfxLabel(s.effect)}">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
                stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5.2 3.6 12.2 8l-7 4.4z"/>
@@ -234,12 +222,7 @@ listGroup.addEventListener('click', async (e) => {
   if (!act) return;
 
   if (act.dataset.act === 'preview') {
-    const ok = await chrome.runtime.sendMessage({
-      type: 'PREVIEW',
-      effect: schedule.effect,
-      duration: schedule.duration || settings.duration
-    });
-    if (!ok) toast('Unable to preview here. Try the popup on a website.', 'error');
+    preview(schedule.effect, schedule.duration);
     return;
   }
 
@@ -256,12 +239,13 @@ listGroup.addEventListener('click', async (e) => {
 
 function buildAddForm() {
   const select = $('addEffect');
-  Object.entries(EFFECT_LABELS).forEach(([id, label]) => {
+  [SFX_RANDOM, ...SFX_EFFECTS].forEach(({ id, label }) => {
     const opt = document.createElement('option');
     opt.value = id;
     opt.textContent = label;
     select.appendChild(opt);
   });
+  select.addEventListener('change', () => { $('addIcon').src = sfxIcon(select.value); });
 
   const dayWrap = $('addDays');
   DAYS.forEach((d) => {
@@ -304,7 +288,7 @@ $('addSubmit').addEventListener('click', async () => {
 
   const granted = await hasPermission();
   toast(granted
-    ? `${EFFECT_LABELS[schedule.effect]} added at ${timeLabel(time)}.`
+    ? `${sfxLabel(schedule.effect)} added at ${timeLabel(time)}.`
     : 'Schedule added. Turn on Allow scheduled effects so it can play.');
 });
 
@@ -341,6 +325,124 @@ $('permSwitch').addEventListener('click', async (e) => {
       ok ? undefined : 'error');
   }
 });
+
+/* ---------- effect gallery ------------------------------------------------- *
+ * One card per effect: click the icon to preview it on this tab, flip the
+ * switch to keep it out of Surprise me and random schedules. The pool is
+ * stored as an explicit list, or null for "everything" — so an effect added
+ * in a later version joins the mix instead of silently being left out.     */
+
+const PLAY_GLYPH = `<svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M5 3.4v9.2a.6.6 0 0 0 .9.5l7.3-4.6a.6.6 0 0 0 0-1L5.9 2.9a.6.6 0 0 0-.9.5Z"/></svg>`;
+
+function poolSet() {
+  const all = SFX_EFFECTS.map((e) => e.id);
+  if (!Array.isArray(settings.randomPool)) return new Set(all);
+  return new Set(settings.randomPool.filter((id) => all.includes(id)));
+}
+
+function showPoolCount() {
+  const n = poolSet().size;
+  $('poolCount').textContent = n === SFX_EFFECTS.length
+    ? `All ${n} in Surprise me`
+    : `${n} of ${SFX_EFFECTS.length} in Surprise me`;
+  $('poolAll').hidden = n === SFX_EFFECTS.length;
+}
+
+function buildGallery() {
+  const grid = $('fxGrid');
+  const on = poolSet();
+  grid.textContent = '';
+  SFX_EFFECTS.forEach((fx) => {
+    const card = document.createElement('article');
+    card.className = 'fx-card';
+    card.dataset.id = fx.id;
+    card.dataset.on = String(on.has(fx.id));
+    card.innerHTML = `
+      <button class="fx-icon-btn" type="button" data-act="preview" aria-label="Preview ${fx.label}" title="Preview">
+        <img src="${sfxIcon(fx.id)}" alt="">
+        <span class="fx-play">${PLAY_GLYPH}</span>
+      </button>
+      <h3 class="fx-name">${fx.label}</h3>
+      <p class="fx-blurb">${fx.blurb}</p>
+      <button class="switch" type="button" role="switch" aria-checked="${on.has(fx.id)}"
+              aria-label="Include ${fx.label} in Surprise me"><span class="switch-thumb"></span></button>`;
+    grid.appendChild(card);
+  });
+  showPoolCount();
+}
+
+$('fxGrid').addEventListener('click', async (e) => {
+  const card = e.target.closest('.fx-card');
+  if (!card) return;
+  const id = card.dataset.id;
+
+  if (e.target.closest('[data-act="preview"]')) return preview(id);
+
+  const sw = e.target.closest('.switch');
+  if (!sw) return;
+  const set = poolSet();
+  if (set.has(id)) {
+    if (set.size === 1) return toast('Keep at least one effect in the mix.', 'error');
+    set.delete(id);
+  } else set.add(id);
+  sw.setAttribute('aria-checked', String(set.has(id)));
+  card.dataset.on = String(set.has(id));
+  await saveSettings({ randomPool: set.size === SFX_EFFECTS.length ? null : [...set] });
+  showPoolCount();
+});
+
+$('poolAll').addEventListener('click', async () => {
+  await saveSettings({ randomPool: null });
+  buildGallery();
+  toast('Every effect is back in the mix.');
+});
+
+/* Preview plays on this page. Chrome will not inject into extension pages,
+   so instead of asking the service worker to, load the runtime here as an
+   ordinary script — it is the same file the popup injects into a website. */
+let runtimeReady = null;
+function loadRuntime() {
+  if (window.__screenFX) return Promise.resolve();
+  if (!runtimeReady) {
+    runtimeReady = new Promise((resolve, reject) => {
+      const tag = document.createElement('script');
+      tag.src = 'content.js';
+      tag.onload = resolve;
+      tag.onerror = reject;
+      document.head.appendChild(tag);
+    });
+  }
+  return runtimeReady;
+}
+
+async function preview(effect, duration) {
+  let ok = false;
+  try {
+    await loadRuntime();
+    ok = window.__screenFX.play(effect, {
+      duration: duration || settings.duration,
+      pool: settings.randomPool
+    });
+  } catch (err) {
+    console.warn('[ScreenFX] preview failed:', err);
+  }
+  if (!ok) toast('Unable to play that preview.', 'error');
+}
+
+/* ---------- section nav ----------------------------------------------------- */
+
+function watchSections() {
+  const links = [...document.querySelectorAll('.tab')];
+  const mark = (id) => links.forEach((a) => a.setAttribute('aria-current', String(a.hash === '#' + id)));
+  mark('playback');
+  if (!('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    const vis = entries.filter((en) => en.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (vis) mark(vis.target.id);
+  }, { rootMargin: '-80px 0px -55% 0px' });
+  document.querySelectorAll('.section').forEach((sec) => io.observe(sec));
+}
 
 /* ---------- misc ----------------------------------------------------------- */
 
@@ -387,7 +489,13 @@ function toast(text, tone) {
   );
 
   buildAddForm();
+  buildGallery();
+  watchSections();
   render();
+
+  const v = chrome.runtime.getManifest().version;
+  $('version').textContent = 'v' + v;
+  $('colophon').textContent = `ScreenFX ${v} · ${SFX_EFFECTS.length} effects · nothing leaves your browser`;
   showPermission(await hasPermission());
 
   // Two frames: one for layout, one for font metrics to settle, so each thumb

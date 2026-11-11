@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs>
+<linearGradient id="confetti-bg" x1="14" y1="0" x2="50" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F45390"/><stop offset="1" stop-color="#FF8A3D"/></linearGradient>
+<linearGradient id="confetti-hl" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<filter id="confetti-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000" flood-opacity="0.28"/></filter>
+</defs>
+<rect width="64" height="64" rx="15" fill="url(#confetti-bg)"/>
+<rect width="64" height="64" rx="15" fill="url(#confetti-hl)"/>
+<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+<g filter="url(#confetti-sh)">
+<g transform="translate(14 51) rotate(40)">
+<path d="M0 0L-8.5-23Q0-26.5 8.5-23Z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+<path d="M-3.4-9.2Q0-10.2 3.4-9.2M-6-16.3Q0-18.2 6-16.3" fill="none" stroke="#F7568A" stroke-width="3"/>
+</g>
+<rect x="35" y="13" width="6" height="3.5" rx="1" transform="rotate(32 38 14.75)" fill="#FDE047"/>
+<rect x="44.5" y="25" width="5" height="3.5" rx="1" transform="rotate(-25 47 26.75)" fill="#fff"/>
+<rect x="27" y="12.5" width="4" height="4" rx="1" transform="rotate(-18 29 14.5)" fill="#fff"/>
+<rect x="47" y="13" width="4.5" height="3.5" rx="1" transform="rotate(60 49.25 14.75)" fill="#8B5CF6"/>
+<rect x="47.5" y="38" width="5" height="3.5" rx="1" transform="rotate(-35 50 39.75)" fill="#FDE047"/>
+<circle cx="40" cy="22.5" r="2" fill="#8B5CF6"/>
+<circle cx="20.5" cy="21" r="2.2" fill="#FDE047"/>
+<circle cx="53" cy="22" r="1.8" fill="#fff"/>
+<path d="M37 37q2-3.5 4.2-.5t4.2-.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+</g>
+</svg>

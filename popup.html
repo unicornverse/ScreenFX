@@ -8,8 +8,12 @@
 </head>
 <body>
   <header class="header">
-    <h1 class="t-title">ScreenFX</h1>
-    <button class="icon-btn" id="openOptions" type="button" aria-label="Settings">
+    <img class="brand" src="icons/brand.svg" width="30" height="30" alt="">
+    <div class="brand-text">
+      <h1 class="t-title">ScreenFX</h1>
+      <p class="t-footnote brand-sub" id="sub">12 effects for this tab</p>
+    </div>
+    <button class="icon-btn" id="openOptions" type="button" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor"
            stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
         <path d="M2.6 6.2h3.1M9.3 6.2h8.1M2.6 13.8h8.1M14.6 13.8h2.8"/>
@@ -19,7 +23,17 @@
     </button>
   </header>
 
-  <main class="grid" id="grid" role="group" aria-label="Effects"></main>
+  <button class="hero" id="surprise" type="button" aria-keyshortcuts="R">
+    <img class="hero-icon" src="icons/fx/random.svg" width="36" height="36" alt="">
+    <span class="hero-text">
+      <span class="hero-title">Surprise me</span>
+      <span class="hero-sub" id="heroSub">A random effect from your mix</span>
+    </span>
+    <kbd class="key key-on-accent" aria-hidden="true">R</kbd>
+  </button>
+
+  <h2 class="sr-only" id="gridHead">Effects</h2>
+  <main class="grid" id="grid" role="group" aria-labelledby="gridHead"></main>
 
   <section class="group">
     <div class="row">
@@ -30,9 +44,15 @@
     </div>
 
     <button class="row" id="schedulesRow" type="button">
+      <span class="row-icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="10" r="7.2"/><path d="M10 6v4.2l2.8 1.8"/>
+        </svg>
+      </span>
       <span class="row-text">
         <span class="t-label">Schedules</span>
-        <span class="t-body" id="nextRun">No schedules yet</span>
+        <span class="t-body" id="nextRun">Book an effect for later</span>
       </span>
       <svg class="chevron" viewBox="0 0 12 12" width="11" height="11" fill="none"
            stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
@@ -42,10 +62,11 @@
     </button>
   </section>
 
-  <p class="t-footnote hint" id="hint">Press 1–6 to play an effect.</p>
+  <p class="t-footnote hint" id="hint">Press a key on the number row to play, Esc to stop.</p>
 
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
 
+  <script src="effects.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

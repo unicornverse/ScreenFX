@@ -1,18 +1,15 @@
 /* ============================================================================
  * ScreenFX popup
  * ----------------------------------------------------------------------------
- * A 320px surface with one job: play an effect. Everything that is not that
- * lives one level deeper, behind the Schedules row.
- *
- * No colour except the accent on the selected duration, no shadows except the
- * segmented-control thumb, and no hover animation on the tiles — a grid you
- * sweep the pointer across every time you open it is the wrong place to spend
- * attention. The tiles change background on hover and nothing else.
+ * A 352px surface with one job: play an effect. The colour lives in the
+ * effect icons, which are the content; the chrome around them stays neutral
+ * so twelve saturated tiles do not have to compete with it. The one accent
+ * surface is Surprise me, the primary action.
  * ========================================================================== */
 
 body {
-  width: 320px;
-  padding: var(--s3) var(--s4) var(--s4);
+  width: 352px;
+  padding: var(--s3) var(--s3) var(--s3);
   overflow: hidden;
 }
 
@@ -21,78 +18,197 @@ body {
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--s2);
-  height: 34px;
-  margin-bottom: var(--s3);
+  gap: 10px;
+  height: 38px;
+  padding-inline: var(--s1);
+  margin-bottom: 10px;
 }
 
-.header h1 { margin: 0; }
+.brand {
+  flex: none;
+  display: block;
+  border-radius: 8px;
+}
+
+.brand-text { flex: 1; min-width: 0; }
+.brand-text h1 { margin: 0; font-size: 15.5px; line-height: 1.15; }
+.brand-sub { margin: 1px 0 0; font-variant-numeric: tabular-nums; }
+
+/* ---------- hero: Surprise me --------------------------------------------- */
+
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: 8px var(--s3) 8px 8px;
+  margin-bottom: var(--s3);
+  border: 0;
+  border-radius: var(--r-tile);
+  background: var(--brand-grad);
+  color: #fff;
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 6px 18px -8px rgb(79 91 255 / 0.7);
+  transition: transform var(--t-press) var(--ease-out), filter var(--t-tint) var(--ease-out);
+}
+
+/* a soft sheen across the top, so the gradient reads as a surface */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 45% 0;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0));
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero:hover { filter: brightness(1.06) saturate(1.05); }
+  .hero:hover .hero-icon { transform: rotate(-8deg) scale(1.06); }
+}
+.hero:active { transform: scale(0.98); }
+
+.hero-icon {
+  flex: none;
+  display: block;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25);
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
+}
+
+.hero-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hero-title { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.25; }
+.hero-sub {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero:focus-visible { outline-offset: 3px; border-radius: var(--r-tile); }
+
+/* ---------- keycaps ------------------------------------------------------- */
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--fill);
+  box-shadow: inset 0 -1px 0 var(--separator);
+  color: var(--label-2);
+  font: 600 10.5px/1 var(--font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.key-on-accent {
+  background: rgb(255 255 255 / 0.18);
+  box-shadow: inset 0 -1px 0 rgb(0 0 0 / 0.15);
+  color: #fff;
+}
 
 /* ---------- effect grid --------------------------------------------------- */
 
+.grid-head {
+  margin: 0 0 var(--s1);
+  padding-inline: var(--s1);
+}
+
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s2);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 6px;
   margin-bottom: var(--s3);
 }
 
 .tile {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--s2);
-  padding: var(--s3);
+  align-items: center;
+  gap: 5px;
+  padding: 9px 4px 7px;
   border: 0;
   border-radius: var(--r-tile);
-  /* Tiles share the raised surface with the rows below them. Putting the grid
-     on --fill made the white settings card look more important than the thing
-     the popup exists to do. */
-  background: var(--surface);
+  background: transparent;
   color: var(--label);
-  text-align: start;
   cursor: pointer;
   transition:
     background-color var(--t-tint) var(--ease-out),
     transform var(--t-press) var(--ease-out);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .tile:hover { background: var(--fill); }
-}
-
-/* Feedback lands on pointer-down, not on release. */
-.tile:active {
-  background: var(--fill-hover);
-  transform: scale(0.97);
-}
-
-.tile-glyph {
+.tile-icon {
   display: block;
-  color: var(--label);
-  transition: color var(--t-tint) var(--ease-out);
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  /* the icon is a lifted object; one soft shadow, tinted by nothing */
+  box-shadow: 0 1px 1px oklch(0.2 0.02 270 / 0.12), 0 4px 10px -4px oklch(0.2 0.02 270 / 0.35);
+  transition: transform var(--spring-ms) var(--spring);
 }
-
-/* An inline SVG carrying only a viewBox has no intrinsic size; inside a
-   flex column that shrinks to content it resolves to 0x0 and vanishes. */
-.tile-glyph svg { display: block; width: 24px; height: 24px; }
 
 .tile-label {
-  font-size: 13px;
+  max-width: 100%;
+  font-size: 11.5px;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.003em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.tile .key {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity var(--t-tint) var(--ease-out),
+    transform var(--t-tint) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover { background: var(--surface); }
+  .tile:hover .tile-icon { transform: translateY(-2px); }
+  .tile:hover .key { opacity: 1; transform: none; }
+}
+.tile:focus-visible { background: var(--surface); }
+.tile:focus-visible .key { opacity: 1; transform: none; }
+
+/* Feedback lands on pointer-down, not on release. */
+.tile:active { transform: scale(0.95); }
+.tile.is-playing .tile-icon { transform: scale(0.92); }
 
 /* ---------- rows ---------------------------------------------------------- */
 
 .group { margin-bottom: var(--s3); }
-
-.row { min-height: 42px; }
-
+.row { min-height: 44px; }
 .row .seg { margin-inline-start: auto; }
 .row .seg-opt { height: 24px; padding: 0 9px; font-size: 12px; }
+
+.row-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent-wash);
+  color: var(--accent);
+}
 
 #schedulesRow .row-text { display: flex; flex-direction: column; }
 
@@ -101,8 +217,35 @@ body {
 .hint {
   margin: 0;
   padding-inline: var(--s1);
+  text-align: center;
   text-wrap: pretty;
   transition: color var(--t-tint) var(--ease-out);
 }
 
-.hint.is-error { color: var(--danger); }
+.hint.is-error {
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-control);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* ---------- entrance -------------------------------------------------------
+   The popup is rebuilt on every open, so its entrance runs every time. Keep
+   it to a short rise with a stagger across the grid — enough to feel alive,
+   short enough to never be waited on.                                       */
+
+/* `translate`, not `transform`: a filled animation on transform would pin it
+   and swallow the hover lift and press scale below. */
+@keyframes rise {
+  from { opacity: 0; translate: 0 6px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+.hero, .tile, .group { animation: rise 360ms var(--spring) both; }
+.tile { animation-delay: calc(30ms + var(--i, 0) * 14ms); }
+.group { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero, .tile, .group { animation: none; }
+  .tile:hover .tile-icon, .hero:hover .hero-icon { transform: none; }
+}

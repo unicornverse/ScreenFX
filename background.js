@@ -21,8 +21,13 @@ const ALL_URLS = { origins: ['<all_urls>'] };
 const DEFAULT_SETTINGS = {
   duration: 6000,     // ms an effect stays on screen
   theme: 'auto',      // auto | dark | light
-  lastEffect: null
+  lastEffect: null,
+  randomPool: null    // ids Surprise me may pick; null = all
 };
+
+/* Effects that have been retired, and what a schedule pointing at one plays
+   instead. Flood was removed in 2.0. */
+const RETIRED = { waterfall: 'underwater' };
 
 /* ---------- listeners: all registered synchronously, top level ----------- */
 
@@ -97,8 +102,30 @@ async function syncAlarms() {
 async function handleInstalled(details) {
   if (details.reason === 'install') {
     await chrome.storage.sync.set({ settings: DEFAULT_SETTINGS, schedules: [] });
+  } else if (details.reason === 'update') {
+    await migrateRetired();
   }
   await syncAlarms();
+}
+
+/** Point schedules (and the random pool) at effects that still exist. */
+async function migrateRetired() {
+  try {
+    const schedules = await getSchedules();
+    let changed = false;
+    for (const s of schedules) {
+      if (RETIRED[s.effect]) { s.effect = RETIRED[s.effect]; changed = true; }
+    }
+    if (changed) await chrome.storage.sync.set({ schedules });
+
+    const settings = await getSettings();
+    if (Array.isArray(settings.randomPool) && settings.randomPool.some((id) => RETIRED[id])) {
+      settings.randomPool = settings.randomPool.filter((id) => !RETIRED[id]);
+      await chrome.storage.sync.set({ settings });
+    }
+  } catch (err) {
+    console.warn('[ScreenFX] migration skipped:', err);
+  }
 }
 
 async function handleStorageChanged(changes, area) {
@@ -114,7 +141,8 @@ async function handleAlarm(alarm) {
   if (!schedule || !schedule.enabled) return;
 
   const settings = await getSettings();
-  await fireOnActiveTab(schedule.effect, schedule.duration || settings.duration, true);
+  await fireOnActiveTab(RETIRED[schedule.effect] || schedule.effect,
+    schedule.duration || settings.duration, true, settings.randomPool);
 
   // Re-arm immediately. A repeating alarm cannot express "09:00 on Mon/Wed",
   // so each firing schedules its own successor.
@@ -130,8 +158,9 @@ async function handleAlarm(alarm) {
  * @param {number} duration ms
  * @param {boolean} scheduled true when there was no user gesture, so the call
  *        depends on the optional host grant rather than activeTab
+ * @param {string[]|null} pool ids 'random' may pick from
  */
-async function fireOnActiveTab(effect, duration, scheduled) {
+async function fireOnActiveTab(effect, duration, scheduled, pool = null) {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab || !tab.id) return false;
 
@@ -139,8 +168,8 @@ async function fireOnActiveTab(effect, duration, scheduled) {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: (name, ms) => window.__screenFX && window.__screenFX.play(name, { duration: ms }),
-      args: [effect, duration]
+      func: (name, ms, p) => window.__screenFX && window.__screenFX.play(name, { duration: ms, pool: p }),
+      args: [effect, duration, pool]
     });
     await flashBadge('', '');
     return true;
@@ -172,7 +201,7 @@ async function flashBadge(text, color) {
 async function handleCommand(command) {
   if (command !== 'surprise-me') return;
   const settings = await getSettings();
-  await fireOnActiveTab('random', settings.duration, false);
+  await fireOnActiveTab('random', settings.duration, false, settings.randomPool);
 }
 
 /* ---------- messages ----------------------------------------------------- */
@@ -205,28 +234,6 @@ function handleMessage(message, sender, sendResponse) {
         .filter(Boolean)
         .sort((a, b) => a - b)[0];
       sendResponse(next || null);
-    })();
-    return true;
-  }
-
-  if (message && message.type === 'PREVIEW') {
-    // Options page preview: there is no activeTab grant from an options tab, so
-    // this runs on the options tab itself, which the extension always owns.
-    (async () => {
-      const tabId = sender.tab && sender.tab.id;
-      if (!tabId) return sendResponse(false);
-      try {
-        await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          func: (n, ms) => window.__screenFX && window.__screenFX.play(n, { duration: ms }),
-          args: [message.effect, message.duration]
-        });
-        sendResponse(true);
-      } catch (err) {
-        console.warn('[ScreenFX] preview failed:', err && err.message);
-        sendResponse(false);
-      }
     })();
     return true;
   }

@@ -80,11 +80,12 @@
   --label-2: oklch(0.46 0.012 264);
   --label-3: oklch(0.54 0.011 264);
 
-  --accent: oklch(0.57 0.215 258);
-  --accent-fill: oklch(0.57 0.215 258);
-  --accent-press: oklch(0.51 0.2 258);
-  --accent-wash: oklch(0.57 0.215 258 / 0.1);
+  --accent: oklch(0.54 0.23 277);
+  --accent-fill: oklch(0.54 0.23 277);
+  --accent-press: oklch(0.48 0.22 277);
+  --accent-wash: oklch(0.54 0.23 277 / 0.1);
   --on-accent: oklch(1 0 0);
+  --brand-grad: linear-gradient(135deg, #4F7BFF 0%, #8A4DFF 100%);
 
   --danger: oklch(0.56 0.205 27);
   --danger-wash: oklch(0.56 0.205 27 / 0.1);
@@ -111,10 +112,10 @@
     --label-2: oklch(0.73 0.01 264);
     --label-3: oklch(0.61 0.01 264);
 
-    --accent: oklch(0.68 0.185 253);
-    --accent-fill: oklch(0.56 0.2 253);
-    --accent-press: oklch(0.5 0.19 253);
-    --accent-wash: oklch(0.68 0.185 253 / 0.16);
+    --accent: oklch(0.74 0.15 277);
+    --accent-fill: oklch(0.55 0.22 277);
+    --accent-press: oklch(0.49 0.21 277);
+    --accent-wash: oklch(0.74 0.15 277 / 0.16);
     --on-accent: oklch(1 0 0);
 
     --danger: oklch(0.68 0.18 25);
@@ -141,10 +142,10 @@
   --label-2: oklch(0.73 0.01 264);
   --label-3: oklch(0.61 0.01 264);
 
-  --accent: oklch(0.68 0.185 253);
-  --accent-fill: oklch(0.56 0.2 253);
-  --accent-press: oklch(0.5 0.19 253);
-  --accent-wash: oklch(0.68 0.185 253 / 0.16);
+  --accent: oklch(0.74 0.15 277);
+  --accent-fill: oklch(0.55 0.22 277);
+  --accent-press: oklch(0.49 0.21 277);
+  --accent-wash: oklch(0.74 0.15 277 / 0.16);
   --on-accent: oklch(1 0 0);
 
   --danger: oklch(0.68 0.18 25);

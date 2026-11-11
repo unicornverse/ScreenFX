@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ScreenFX",
-  "version": "1.1.0",
-  "description": "Click when bored. Six full-screen visual pranks for whatever tab you are staring at, on demand or on a timer.",
+  "version": "2.0.0",
+  "description": "Click when bored. Twelve full-screen visual pranks for whatever tab you are on, on demand or on a timer.",
   "permissions": ["activeTab", "scripting", "storage", "alarms"],
   "optional_host_permissions": ["<all_urls>"],
   "background": {
