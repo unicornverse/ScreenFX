@@ -7,7 +7,7 @@
  * truth, and a schedule synced from another device schedules itself.
  * ========================================================================== */
 
-/* global SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, sfxIcon, sfxLabel */
+/* global SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, SFX_FILES, sfxIcon, sfxLabel, sfxCapture */
 
 const DURATIONS = SFX_DURATIONS;
 
@@ -405,28 +405,46 @@ function loadRuntime() {
   if (window.__screenFX) return Promise.resolve();
   if (!runtimeReady) {
     runtimeReady = new Promise((resolve, reject) => {
-      const tag = document.createElement('script');
-      tag.src = 'content.js';
-      tag.onload = resolve;
-      tag.onerror = reject;
-      document.head.appendChild(tag);
+      // in order: the runtime, then each effect module registering into it
+      SFX_FILES.reduce((p, src) => p.then(() => new Promise((res, rej) => {
+        const tag = document.createElement('script');
+        tag.src = src;
+        tag.onload = res;
+        tag.onerror = rej;
+        document.head.appendChild(tag);
+      })), Promise.resolve()).then(resolve, reject);
     });
   }
   return runtimeReady;
 }
 
+let snapshotSeen = false;
 async function preview(effect, duration) {
   let ok = false;
   try {
     await loadRuntime();
-    ok = window.__screenFX.play(effect, {
+    // Preview on this very page, so effects that act on the real page have
+    // something real to act on.
+    window.__screenFX.stop();
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 40)));
+    const snapshot = await sfxCapture(chrome.windows ? chrome.windows.WINDOW_ID_CURRENT : undefined);
+    if (snapshot) snapshotSeen = true;
+    ok = await window.__screenFX.play(effect, {
       duration: duration || settings.duration,
-      pool: settings.randomPool
+      pool: settings.randomPool,
+      snapshot
     });
   } catch (err) {
     console.warn('[ScreenFX] preview failed:', err);
   }
   if (!ok) toast('Unable to play that preview.', 'error');
+  else if (!snapshotSeen) {
+    // Chrome only lets an extension screenshot a tab after a toolbar click
+    // (or with the schedule permission), so a preview here can't act on a
+    // real page. Say so once rather than let it look like the whole effect.
+    snapshotSeen = true;
+    toast('Simplified preview. Play it from the toolbar on any website to see it act on the page.');
+  }
 }
 
 /* ---------- section nav ----------------------------------------------------- */

@@ -5,7 +5,7 @@
  * injects content.js into the active tab on click.
  * ========================================================================== */
 
-/* global SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, SFX_KEYS, sfxIcon, sfxLabel */
+/* global SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, SFX_KEYS, sfxIcon, sfxLabel, sfxPlayInTab */
 
 const DEFAULT_MS = 6000;
 
@@ -196,16 +196,11 @@ async function play(id) {
 
     // activeTab covers this: the grant was made when the toolbar icon was
     // clicked to open this popup, and it covers exactly this tab.
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     // play() reports whether it actually started. Without checking it, a tab
     // still holding an older build just does nothing when asked for an effect
     // that build has never heard of, and the popup closes as if it worked.
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (name, ms, p) => !!(window.__screenFX && window.__screenFX.play(name, { duration: ms, pool: p })),
-      args: [id, duration, pool]
-    });
-    if (!res || res.result !== true) {
+    const ok = await sfxPlayInTab(tab, id, duration, pool);
+    if (!ok) {
       fail('That effect didn’t start. Reload the page and try again.');
       return;
     }

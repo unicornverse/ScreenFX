@@ -10,21 +10,21 @@
  * Icons live at icons/fx/<id>.svg.
  * ========================================================================== */
 
-/* exported SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, SFX_KEYS, sfxIcon, sfxLabel */
+/* exported SFX_EFFECTS, SFX_RANDOM, SFX_DURATIONS, SFX_KEYS, SFX_FILES, sfxIcon, sfxLabel, sfxCapture */
 
 const SFX_EFFECTS = [
-  { id: 'prisonBars',   label: 'Prison bars',   blurb: 'Steel bars slam down and lock the page in.' },
-  { id: 'crack',        label: 'Screen crack',  blurb: 'A dropped-phone shatter, bleeding ink and dead lines.' },
-  { id: 'glitch',       label: 'Glitch',        blurb: 'The signal tears, splits and inverts.' },
-  { id: 'confetti',     label: 'Confetti',      blurb: 'Two cannons fire, then it keeps raining paper.' },
-  { id: 'fireworks',    label: 'Fireworks',     blurb: 'Night falls and a show goes up over the page.' },
-  { id: 'bugs',         label: 'Bug invasion',  blurb: 'Beetles crawl in. Click one to squash it.' },
-  { id: 'spiderman',    label: 'Web slinger',   blurb: 'A masked hero is lowered down on a line.' },
-  { id: 'webShooter',   label: 'Web shooter',   blurb: 'Aim with the pointer, click to shoot webs.' },
-  { id: 'underwater',   label: 'Underwater',    blurb: 'The page sinks. Light shafts, bubbles, fish.' },
-  { id: 'snowstorm',    label: 'Deep freeze',   blurb: 'Frost creeps in from the edges as snow falls.' },
-  { id: 'thunderstorm', label: 'Thunderstorm',  blurb: 'The sky darkens, rain sheets down, lightning hits.' },
-  { id: 'blackhole',    label: 'Black hole',    blurb: 'A singularity opens and starts eating the light.' }
+  { id: 'prisonBars',   label: 'Prison bars',   blurb: 'Rusted steel slams down and casts shadows on the page.' },
+  { id: 'crack',        label: 'Screen crack',  blurb: 'The glass shatters and bends the page through every crack.' },
+  { id: 'glitch',       label: 'Glitch',        blurb: 'The page itself corrupts: datamosh, tearing, lost blocks.' },
+  { id: 'confetti',     label: 'Confetti',      blurb: 'Paper flutters down and piles up on the page’s own edges.' },
+  { id: 'fireworks',    label: 'Fireworks',     blurb: 'Night falls and every burst lights up the page.' },
+  { id: 'bugs',         label: 'Bug invasion',  blurb: 'Insects explore the page’s layout. Click one to squash it.' },
+  { id: 'spiderman',    label: 'Web slinger',   blurb: 'A masked hero drops from the page’s own header on a line.' },
+  { id: 'webShooter',   label: 'Web shooter',   blurb: 'Click anything on the page to web it.' },
+  { id: 'underwater',   label: 'Underwater',    blurb: 'Water rises and the page wobbles under caustics and fish.' },
+  { id: 'snowstorm',    label: 'Deep freeze',   blurb: 'Frost grows over the glass and blurs the page behind it.' },
+  { id: 'thunderstorm', label: 'Thunderstorm',  blurb: 'Rain runs down the glass and lightning lights the page.' },
+  { id: 'blackhole',    label: 'Black hole',    blurb: 'Bends the page around it, then swallows it whole.' }
 ];
 
 const SFX_RANDOM = { id: 'random', label: 'Surprise me', blurb: 'A random effect from your mix.' };
@@ -40,7 +40,58 @@ const SFX_DURATIONS = [
 /** Number-row keys, in grid order. */
 const SFX_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
 
+/** What gets injected into a tab, in order: the runtime first, then every
+ *  effect module (each registers itself with the runtime). */
+const SFX_FILES = [
+  'content.js',
+  'fx/prisonBars.js', 'fx/crack.js', 'fx/glitch.js', 'fx/confetti.js', 'fx/fireworks.js',
+  'fx/bugs.js', 'fx/webs.js', 'fx/underwater.js', 'fx/snowstorm.js', 'fx/thunderstorm.js',
+  'fx/blackhole.js'
+];
+
 const sfxIcon = (id) => `icons/fx/${id}.svg`;
+
+/**
+ * Screenshot the visible tab so effects can act on the real page. Needs the
+ * activeTab grant (toolbar click, keyboard shortcut) or the optional
+ * <all_urls> grant (schedules). Returns a JPEG data URL, or null — every
+ * effect has a fallback, so a failed capture never blocks playback.
+ */
+async function sfxCapture(windowId) {
+  try {
+    return await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 92 });
+  } catch (err) {
+    console.warn('[ScreenFX] capture skipped:', err && err.message);
+    return null;
+  }
+}
+
+/**
+ * Inject the runtime into a tab and play. If an effect is already up it is
+ * stopped first and the capture waits a frame, so the screenshot shows the
+ * page and not the previous overlay.
+ */
+async function sfxPlayInTab(tab, effect, duration, pool) {
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: SFX_FILES });
+  const [prev] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      const s = window.__screenFX;
+      const was = !!(s && s.isPlaying && s.isPlaying());
+      if (s) s.stop();
+      return was;
+    }
+  });
+  if (prev && prev.result) await new Promise((r) => setTimeout(r, 90));
+  const snapshot = await sfxCapture(tab.windowId);
+  const [res] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: async (name, ms, p, snap) =>
+      !!(window.__screenFX && await window.__screenFX.play(name, { duration: ms, pool: p, snapshot: snap })),
+    args: [effect, duration, pool || null, snapshot]
+  });
+  return !!(res && res.result === true);
+}
 
 /** Label for any id, including ones from older versions that no longer exist. */
 function sfxLabel(id) {

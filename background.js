@@ -15,6 +15,9 @@
  *     worker and the schedule would silently never fire
  * ========================================================================== */
 
+/* global sfxPlayInTab */
+importScripts('effects.js');   // SFX_FILES, sfxCapture, sfxPlayInTab
+
 const ALARM_PREFIX = 'sfx:';
 const ALL_URLS = { origins: ['<all_urls>'] };
 
@@ -165,12 +168,7 @@ async function fireOnActiveTab(effect, duration, scheduled, pool = null) {
   if (!tab || !tab.id) return false;
 
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (name, ms, p) => window.__screenFX && window.__screenFX.play(name, { duration: ms, pool: p }),
-      args: [effect, duration, pool]
-    });
+    await sfxPlayInTab(tab, effect, duration, pool);
     await flashBadge('', '');
     return true;
   } catch (err) {

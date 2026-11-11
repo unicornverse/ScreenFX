@@ -23,20 +23,20 @@ popup says so under the grid instead of failing silently.
 
 ## The effects
 
-| Key | Effect | What happens |
-|-----|--------|--------------|
-| 1 | Prison bars | Steel bars slam down with overshoot, the screen takes an impact shake, bars lift back up |
-| 2 | Screen crack | A dropped phone: cracked cover glass over a broken display — liquid-crystal bleed, driver line bands, rainbow mura and backlight blowout |
-| 3 | Glitch | Backdrop-filter slices tear through the real page, chromatic fringing, scanlines, inversion hits |
-| 4 | Confetti | Two cannons fire from the bottom corners, then paper keeps raining from the top. Canvas, with drag, flip and flutter |
-| 5 | Fireworks | The page goes to night; peony, ring, willow and crackle shells, ending on a finale |
-| 6 | Bug invasion | Beetles and ladybirds crawl in with a real tripod gait. They bolt from the pointer; click one to squash it. The page stays usable |
-| 7 | Web slinger | A line anchors in the top-right corner and lowers a web-slinger down the page, where he sways before being hoisted off-screen |
-| 8 | Web shooter | A gloved forearm reaches in from the bottom-right and tracks your pointer. Click anywhere and a web sticks |
-| 9 | Underwater | The page goes under. Light shafts, caustics, rising bubbles and fish at three depths |
-| 0 | Deep freeze | Frost dendrites creep in from the edges (corners first) over a frosted blur while snow falls, then it thaws |
-| - | Thunderstorm | The sky closes in, wind-blown rain with splashes, forked lightning with a leader and return stroke |
-| = | Black hole | An event horizon with a photon ring and a beamed Keplerian accretion disk; streaks spiral in, then it collapses |
+| Key | Effect | What happens to the real page |
+|-----|--------|-------------------------------|
+| 1 | Prison bars | Rusted, brushed-steel bars (Fresnel metal shading) drop under gravity and bounce. They cast shadows and ambient occlusion onto the page and reflect it in their rims |
+| 2 | Screen crack | The fracture is rasterised once, then the page is refracted across each crack with chromatic dispersion and glints. LCD ink, driver lines and mura sit underneath |
+| 3 | Glitch | The page snapshot is re-encoded like a failing video decoder: 8×8 DCT block quantisation, datamosh along motion vectors, chroma bleed, sync tearing, a vertical roll |
+| 4 | Confetti | Andersen–Pesavento–Wang falling-plate aerodynamics (flutter and tumble). Paper lands and piles on the top edges of the page's own elements, then a gust clears it |
+| 5 | Fireworks | The page is relit for night. Each burst is a point light that illuminates the page; stars follow drag ballistics |
+| 6 | Bug invasion | Ladybirds, beetles and ants walk with a real tripod gait and follow the page's element edges. Ants follow a pheromone trail; bugs flee the pointer and squash on click |
+| 7 | Web slinger | A verlet rope lowers him from under the page's own header bar, with a silk glint and a cast shadow |
+| 8 | Web shooter | Click anything on the page: the web sticks to that element, wraps its corners, then snaps and dangles |
+| 9 | Underwater | Snell refraction through dispersive waves, caustics, Beer–Lambert (Jerlov) absorption, a rising waterline with a meniscus, and lensing bubbles. The water drains by Torricelli's law |
+| 0 | Deep freeze | Dendritic frost grows over the glass and refracts and scatters the page, so it reads on white and black alike. Snow settles on elements; wipe it with the pointer; the thaw leaves drips |
+| - | Thunderstorm | Raindrops on the glass act as lenses onto the page under an overcast relight. Stepped-leader lightning lights up the actual page |
+| = | Black hole | Schwarzschild lensing of the page (Einstein ring, shadow), a Doppler-beamed accretion disk, then a sink-vortex that spaghettifies and swallows the page before it evaporates |
 
 **Surprise me** (or **R** in the popup, or the keyboard shortcut) plays a random effect.
 The settings page lets you switch effects out of that mix and preview any of them.
@@ -66,7 +66,7 @@ loses its flash and flicker, and particle counts drop across the canvas effects.
 
 ## Where the effects get their behaviour
 
-Several are built on measured physics or on reference photography rather than on
+All twelve are built on measured physics or on reference photography rather than on
 hand-tuned keyframes, because the details that make something read as real are exactly the
 ones intuition gets wrong:
 
@@ -129,7 +129,9 @@ assign it from the options page, which links to `chrome://extensions/shortcuts`.
 manifest.json          MV3 manifest — activeTab, scripting, storage, alarms
                        + optional_host_permissions: <all_urls>
 background.js          service worker: alarms, keyboard shortcut, permission flow
-content.js             the injected runtime: overlay lifecycle + EFFECTS registry
+content.js             the injected core: overlay lifecycle, timing, kit helpers,
+                       WebGL (gl + GLSL_LIB), lockScroll, blocks, play()
+fx/*.js                one module per effect, registered into the core
 theme.css              design system: OKLCH colour, spring easings, type roles,
                        and the shared primitives (grouped list, segmented control,
                        switch, buttons)
@@ -181,14 +183,29 @@ all honoured.
 
 ## How it works
 
-The popup calls `chrome.scripting.executeScript` twice: once to load `content.js` into the
-active tab, once to call `window.__screenFX.play(name, { duration })`. `content.js` guards
-against double-definition, so repeat clicks just re-run `play()`.
+**Acting on the real page.** Before an effect plays, the caller (popup, keyboard
+shortcut or schedule) takes a screenshot of the visible tab with
+`chrome.tabs.captureVisibleTab`. That is allowed by the same `activeTab` grant the
+click already gave, or by the optional schedule permission, so it adds no install
+warning. The screenshot goes into `play()` as `opts.snapshot`. Effects render it through
+WebGL shaders (`kit.gl()`), so they bend, refract, relight, corrupt or swallow the
+site's own pixels without touching a single node of the host page. While an effect
+redraws the page, scrolling is locked so the image stays lined up with what is
+underneath. Every effect also has a fallback for when there is no snapshot or no WebGL.
+The settings-page preview is the common case: Chrome won't let an extension screenshot
+its own page without that grant.
+
+**Injection.** `sfxPlayInTab()` in `effects.js` runs the whole sequence. It injects
+`SFX_FILES` (the `content.js` core, then every `fx/*.js` module, each registering itself),
+stops any live effect, captures the tab, then calls
+`window.__screenFX.play(name, { duration, pool, snapshot })`. `play()` is async and
+resolves to whether the effect started. The core guards against double-definition by
+`RUNTIME` version, so a newer build replaces an older one in a tab that is already open.
 
 `play()` tears down any live overlay before mounting a new one, so effects can never
-stack. The new overlay is a single `position: fixed` element at `z-index: 2147483600`
-with `pointer-events: none`, so clicks, scrolls and selection all pass straight through to
-the page; only the dismiss button opts back in with `pointer-events: auto`. Teardown is
+stack. The overlay is a single `position: fixed` element at `z-index: 2147483600`
+with `pointer-events: none`. Clicks pass straight through to the page; only the
+dismiss button, and effects that are interactive on purpose, opt back in. Teardown is
 scheduled from the duration the effect returns, with the requested duration + 2.5s as a
 backstop.
 
