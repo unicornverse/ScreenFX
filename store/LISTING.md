@@ -10,7 +10,7 @@ Images for every slot are in this folder (see "Graphic assets" at the bottom).
 | Field | Value | Limit |
 |---|---|---|
 | Name | `Screenick` | — |
-| Summary (manifest `description`) | `Click when bored. Twelve full-screen visual pranks for whatever tab you are on, on demand or on a timer.` | 132 chars (this is 104) |
+| Summary (manifest `description`) | `Click when bored. Twelve full-screen visual pranks for whatever tab you are on, on demand or on a timer.` | 132 chars (this is 106) |
 | Version | `2.0.0` | must go up on every upload |
 
 ---
@@ -37,7 +37,7 @@ TWELVE EFFECTS
 • Confetti: paper flutters down and piles up on the page's own edges.
 • Fireworks: night falls and every burst lights up the page.
 • Bug invasion: ladybirds and ants explore the layout. Click one to squash it.
-• Web slinger: a masked figure drops from the page's header on a line.
+• Web slinger: a masked hero swings across the page and never stops.
 • Web shooter: click anything on the page to web it.
 • Underwater: water rises and the page wobbles under caustics and fish.
 • Deep freeze: frost grows over the glass and blurs the page behind it.
@@ -173,5 +173,5 @@ No account or login is needed.
 
 - [x] Upload package built: `screenick-2.0.0.zip` (40 runtime files, `manifest.json` at the root, forward-slash paths, 196 KB). Upload this one, not the old `screenick-v2.0.0.zip` in the project root.
 - [ ] Unzip it, load the folder unpacked at `chrome://extensions` once, and play a couple of effects.
-- [ ] Decide on **Web slinger**: its icon and animation read as Spider-Man. Trademarked characters can get an item rejected or removed. The store images already leave it out; consider redesigning or dropping the effect before submitting.
+- [x] **Web slinger** redesigned as an original masked hero (graphite suit, teal visor, orange gloves and boots, chevron chest mark; no spider motif) with a new icon. The same hero appears in Web shooter. Re-check the store images before submitting.
 - [ ] One-time developer registration fee paid, publisher name and contact email verified.

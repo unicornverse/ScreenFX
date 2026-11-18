@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS = {
 
 /* Effects that have been retired, and what a schedule pointing at one plays
    instead. Flood was removed in 2.0. */
-const RETIRED = { waterfall: 'underwater' };
+const RETIRED = { waterfall: 'underwater', copycats: 'spiderman' };
 
 /* ---------- listeners: all registered synchronously, top level ----------- */
 

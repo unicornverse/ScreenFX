@@ -31,9 +31,9 @@ popup says so under the grid instead of failing silently.
 | 4 | Confetti | Andersen–Pesavento–Wang falling-plate aerodynamics (flutter and tumble). Paper lands and piles on the top edges of the page's own elements, then a gust clears it |
 | 5 | Fireworks | The page is relit for night. Each burst is a point light that illuminates the page; stars follow drag ballistics |
 | 6 | Bug invasion | Ladybirds, beetles and ants walk with a real tripod gait and follow the page's element edges. Ants follow a pheromone trail; bugs flee the pointer and squash on click |
-| 7 | Web slinger | A verlet rope lowers him from under the page's own header bar, with a silk glint and a cast shadow |
-| 8 | Web shooter | Click anything on the page: the web sticks to that element, wraps its corners, then snaps and dangles |
-| 9 | Underwater | Snell refraction through dispersive waves, caustics, Beer–Lambert (Jerlov) absorption, a rising waterline with a meniscus, and lensing bubbles. The water drains by Torricelli's law |
+| 7 | Web slinger | An original masked hero swings across the page without ever stopping: lines fixed under the page's own header bar, mid-air catches, flips and dives, turns at the edges, then swings off screen |
+| 8 | Web shooter | Click anything on the page: a glob of web fluid bursts into a splat on that element, wraps its corners, then the cord is cut at the wrist and dangles |
+| 9 | Underwater | Snell refraction through dispersive waves, caustics, Beer–Lambert (Jerlov) absorption, a rising waterline with a meniscus, and lensing bubbles. Fish swim inside the water and catch the caustics; your pointer stirs ripples and scatters them. The water drains by Torricelli's law |
 | 0 | Deep freeze | Dendritic frost grows over the glass and refracts and scatters the page, so it reads on white and black alike. Snow settles on elements; wipe it with the pointer; the thaw leaves drips |
 | - | Thunderstorm | Raindrops on the glass act as lenses onto the page under an overcast relight. Stepped-leader lightning lights up the actual page |
 | = | Black hole | Schwarzschild lensing of the page (Einstein ring, shadow), a Doppler-beamed accretion disk, then a sink-vortex that spaghettifies and swallows the page before it evaporates |
@@ -61,7 +61,7 @@ cycles (~4.7s)**, then settles into a non-strobing dead-signal wash for the rest
 well under full white, at most twice per strike, strikes ~1.8s+ apart.
 
 Under `prefers-reduced-motion: reduce` camera shakes are dropped, Glitch becomes a soft
-wash, the web slinger's rope is damped, the cracked panel stops flickering, Thunderstorm
+wash, the web slinger skips his somersault, the underwater pointer stops making ripples, the cracked panel stops flickering, Thunderstorm
 loses its flash and flicker, and particle counts drop across the canvas effects.
 
 ## Where the effects get their behaviour
@@ -70,18 +70,28 @@ All twelve are built on measured physics or on reference photography rather than
 hand-tuned keyframes, because the details that make something read as real are exactly the
 ones intuition gets wrong:
 
-- **Web slinger** is a verlet rope — 18 nodes, fixed 1/120s timestep, 8 Gauss-Seidel
-  constraint passes with the sweep direction alternating, and a bend constraint over the
-  first few nodes so the line does not kink at its anchor. The rope pays out slower than he
-  would fall, so it never goes slack: he is lowered rather than dropped. The physics is
-  there for the sag, the slow pendulum (T = 2π√(L/g), about 2.7s at this length) and the way
-  his arms trail the sway and settle late. Constraint iterations are kept deliberately low —
-  a stiff solver propagates an impulse down the whole chain in one frame, which is what
-  makes a simulated rope look like a pole.
+- **Web slinger** is one live simulation that never pauses: a point mass on an
+  inextensible line at a fixed 240 Hz, g scaled so the figure is 1.8 m tall. A small
+  controller plays the swinger. He releases 35–50° past vertical on the upswing and fires the
+  next line just after the apex, placed so the arc bottoms out in the lower part of the
+  screen and its far end stays on screen. The catch keeps his speed, a boost through the
+  bottom of each arc keeps it lively, and gravity is lighter on the way up than on the way
+  down so he never floats. He turns round in the air when the next jump would leave the
+  screen, throws a tuck somersault or a dive on roughly one jump in three, and swings off
+  screen when the time runs out. The body never jumps between poses: its angle follows a
+  critically damped spring, and every pose parameter eases toward its target. Lines he lets
+  go of stay pinned and fall slack as verlet ropes. The hero, his suit and the icon are an
+  original design (graphite, teal visor, orange gloves and boots), shared with Web shooter.
+- **Web shooter** fires a glob that trails a cord of twisted fibres. Each splat is rendered
+  once, with its soft shadow baked in, then only blitted: a lumpy glob in the middle, cords
+  that curve, taper and fork, and sagging cross-links at irregular radii. Silk is white on
+  every page and reads on white through its shadow and a faint grey rim.
 - **Underwater** sells depth through parallax rather than through blue. Three layers: the far
-  one small, pale, blurred and slow, the near one large, sharp and across the screen in a few
-  seconds. Tail beat scales with fish size, which is most of what separates a shoal from a
-  set of clones.
+  one small, low-resolution (so it is soft), more hazed and more refracted; the near one
+  large and sharp. All three are composited inside the water shader, so caustics play over
+  the fish and fish cast soft shadows on the page. Tail beat scales with fish size, which
+  is most of what separates a shoal from a set of clones. The shader runs at a capped pixel
+  budget that a governor lowers further if frames run long; no canvas filters are used.
 - **Screen crack** is two damaged layers, and the second is the one people actually name. The
   glass: a fracture is a sub-micron air gap, so it is an optical element, not a pen stroke —
   silver and bright on a dark page, mid-grey with a specular flank on a bright one, alpha
@@ -213,9 +223,9 @@ The service worker keeps no state in variables — Chrome tears it down after ~3
 every handler reads `chrome.storage` fresh and every listener is registered synchronously
 at the top level.
 
-Effects that need to stay legible on both light and dark pages (Web slinger, Web shooter, Screen crack)
-sample the page's background luminance and pick their line colour from it, backed by a
-halo in the opposite tone.
+Screen crack samples the page's background luminance and picks its line colour from it, so
+it stays legible on light and dark pages alike. The web effects keep their silk white and
+rely on a cast shadow and a faint grey rim to read on white pages.
 
 ## Adding an effect
 

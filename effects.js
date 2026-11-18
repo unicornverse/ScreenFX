@@ -19,7 +19,7 @@ const SFX_EFFECTS = [
   { id: 'confetti',     label: 'Confetti',      blurb: 'Paper flutters down and piles up on the page’s own edges.' },
   { id: 'fireworks',    label: 'Fireworks',     blurb: 'Night falls and every burst lights up the page.' },
   { id: 'bugs',         label: 'Bug invasion',  blurb: 'Insects explore the page’s layout. Click one to squash it.' },
-  { id: 'spiderman',    label: 'Web slinger',   blurb: 'A masked hero drops from the page’s own header on a line.' },
+  { id: 'spiderman',    label: 'Web slinger',   blurb: 'A masked hero swings across the page and never stops.' },
   { id: 'webShooter',   label: 'Web shooter',   blurb: 'Click anything on the page to web it.' },
   { id: 'underwater',   label: 'Underwater',    blurb: 'Water rises and the page wobbles under caustics and fish.' },
   { id: 'snowstorm',    label: 'Deep freeze',   blurb: 'Frost grows over the glass and blurs the page behind it.' },
