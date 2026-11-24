@@ -11,7 +11,7 @@ Images for every slot are in this folder (see "Graphic assets" at the bottom).
 |---|---|---|
 | Name | `Screenick` | — |
 | Summary (manifest `description`) | `Click when bored. Twelve full-screen visual pranks for whatever tab you are on, on demand or on a timer.` | 132 chars (this is 106) |
-| Version | `2.0.0` | must go up on every upload |
+| Version | `2.0.1` | must go up on every upload |
 
 ---
 
@@ -171,7 +171,7 @@ No account or login is needed.
 
 ## Before you hit submit
 
-- [x] Upload package built: `screenick-2.0.0.zip` (40 runtime files, `manifest.json` at the root, forward-slash paths, 196 KB). Upload this one, not the old `screenick-v2.0.0.zip` in the project root.
+- [x] Upload package built: `screenick-2.0.1.zip` (40 runtime files, `manifest.json` at the root, forward-slash paths). Upload this one, not the old `screenick-v2.0.0.zip` in the project root.
 - [ ] Unzip it, load the folder unpacked at `chrome://extensions` once, and play a couple of effects.
 - [x] **Web slinger** redesigned as an original masked hero (graphite suit, teal visor, orange gloves and boots, chevron chest mark; no spider motif) with a new icon. The same hero appears in Web shooter. Re-check the store images before submitting.
 - [ ] One-time developer registration fee paid, publisher name and contact email verified.
